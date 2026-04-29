@@ -40,6 +40,7 @@ class CloudPushClient {
       await _configureLocalTray();
 
       _token = await _msg!.getToken();
+      await _syncPromptBlockFromSystem();
 
       _msg!.onTokenRefresh.listen((fresh) {
         _token = fresh;
@@ -117,6 +118,7 @@ class CloudPushClient {
                 AuthorizationStatus.authorized ||
             current.authorizationStatus == AuthorizationStatus.provisional;
         await _store.writePushConsent(ok);
+        if (!ok) await _store.writePushPromptBlocked(true);
         return ok;
       }
 
@@ -130,10 +132,26 @@ class CloudPushClient {
               AuthorizationStatus.authorized ||
           result.authorizationStatus == AuthorizationStatus.provisional;
       await _store.writePushConsent(ok);
+      if (!ok) await _store.writePushPromptBlocked(true);
       return ok;
     } catch (_) {
       return false;
     }
+  }
+
+  Future<void> _syncPromptBlockFromSystem() async {
+    try {
+      final current = await _msg!.getNotificationSettings();
+      final status = current.authorizationStatus;
+      if (status == AuthorizationStatus.denied) {
+        await _store.writePushConsent(false);
+        await _store.writePushPromptBlocked(true);
+      } else if (status == AuthorizationStatus.authorized ||
+          status == AuthorizationStatus.provisional) {
+        await _store.writePushConsent(true);
+        await _store.writePushPromptBlocked(false);
+      }
+    } catch (_) {}
   }
 
   void _onForeground(RemoteMessage message) async {

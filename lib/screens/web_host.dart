@@ -173,6 +173,7 @@ class _WebHostState extends State<WebHost> with WidgetsBindingObserver {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => ConnectionLostScreen(
+          net: widget.net,
           retryBuilder: (_) => WebHost(
             target: currentUrl,
             store: widget.store,
@@ -196,31 +197,49 @@ class _WebHostState extends State<WebHost> with WidgetsBindingObserver {
   if (window.__grKbFix) return;
   window.__grKbFix = true;
   function inputLike(n){ return n && (n.tagName==='INPUT' || n.tagName==='TEXTAREA' || n.isContentEditable); }
+  function markPage(){
+    document.documentElement.style.scrollBehavior = 'auto';
+    document.documentElement.style.minHeight = '100%';
+    document.body.style.minHeight = '100%';
+    document.body.style.paddingBottom = '45vh';
+  }
   function focusRoll(){
     var el = document.activeElement;
     if (!inputLike(el)) return;
+    markPage();
     var vp = window.visualViewport;
+    var extra = vp ? Math.max(160, window.innerHeight - vp.height + 24) : 180;
+    document.body.style.paddingBottom = extra + 'px';
     if (vp){
       var r = el.getBoundingClientRect();
-      if (r.bottom > vp.offsetTop + vp.height - 20 || r.top < vp.offsetTop){
-        el.scrollIntoView({ behavior:'smooth', block:'center' });
+      if (r.bottom > vp.offsetTop + vp.height - 90 || r.top < vp.offsetTop + 10){
+        el.scrollIntoView({ behavior:'auto', block:'center', inline:'nearest' });
+        window.scrollBy(0, 80);
       }
     } else {
-      el.scrollIntoView({ behavior:'smooth', block:'center' });
+      el.scrollIntoView({ behavior:'auto', block:'center', inline:'nearest' });
+      window.scrollBy(0, 120);
     }
   }
   document.addEventListener('focusin', function(e){
     if (inputLike(e.target)){
+      setTimeout(focusRoll,80);
       setTimeout(focusRoll,250);
-      setTimeout(focusRoll,500);
-      setTimeout(focusRoll,800);
+      setTimeout(focusRoll,550);
+      setTimeout(focusRoll,900);
     }
   });
+  document.addEventListener('click', function(e){
+    if (inputLike(e.target)){
+      setTimeout(focusRoll,80);
+      setTimeout(focusRoll,350);
+    }
+  }, true);
   if (window.visualViewport){
     var prev = window.visualViewport.height;
     window.visualViewport.addEventListener('resize', function(){
       var h = window.visualViewport.height;
-      if (h < prev){ setTimeout(focusRoll,80); setTimeout(focusRoll,300); }
+      if (h < prev){ setTimeout(focusRoll,50); setTimeout(focusRoll,250); setTimeout(focusRoll,600); }
       prev = h;
     });
   }
@@ -304,7 +323,7 @@ class _WebHostState extends State<WebHost> with WidgetsBindingObserver {
       },
       child: Scaffold(
         backgroundColor: Colors.black,
-        resizeToAvoidBottomInset: false,
+        resizeToAvoidBottomInset: true,
         body: Stack(
           fit: StackFit.expand,
           children: [

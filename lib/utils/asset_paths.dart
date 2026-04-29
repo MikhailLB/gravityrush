@@ -39,7 +39,8 @@ class AssetPaths {
   static const String logo = 'assets/logo_options/logo.webp';
 
   // No WiFi
-  static const String noWifi = 'assets/NO WIFI/no_wifi_screen.webp';
+  static const String noWifi = 'assets/NO_WIFI/no_wifi_screen.webp';
+  static const String noWifiHorizontal = 'assets/NO_WIFI/no_wifi_horizontal.webp';
 
   // Ad screens
   static const String nfVertical = 'assets/add_screens/nf_vertical_screen.mp4';
@@ -52,6 +53,6 @@ class AssetPaths {
     blueSpike, redSpike,
     background,
     loadingBarStart, loadingBarHalf, loadingBarAlmostFull, loadingBarFull, loadingBarEmpty,
-    logo, noWifi,
+    logo, noWifi, noWifiHorizontal,
   ];
 }

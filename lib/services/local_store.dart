@@ -8,6 +8,7 @@ class LocalStore {
   static const _urlExpireKey = 'gr.target_ttl';
   static const _pushCooldownKey = 'gr.push_cooldown_until';
   static const _pushConsentKey = 'gr.push_consent';
+  static const _pushPromptBlockedKey = 'gr.push_prompt_blocked';
   static const _pushTargetKey = 'gr.push_target';
 
   late SharedPreferences _plain;
@@ -48,6 +49,13 @@ class LocalStore {
     await _plain.setBool(_pushConsentKey, allowed);
   }
 
+  bool readPushPromptBlocked() =>
+      _plain.getBool(_pushPromptBlockedKey) ?? false;
+
+  Future<void> writePushPromptBlocked(bool blocked) async {
+    await _plain.setBool(_pushPromptBlockedKey, blocked);
+  }
+
   int? readPushCooldown() => _plain.getInt(_pushCooldownKey);
 
   Future<void> writePushCooldown(int epochSeconds) async {
@@ -56,6 +64,7 @@ class LocalStore {
 
   bool needsPushPrompt() {
     if (readPushConsent()) return false;
+    if (readPushPromptBlocked()) return false;
     final cooldown = readPushCooldown();
     if (cooldown == null) return true;
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;

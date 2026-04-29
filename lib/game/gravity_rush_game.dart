@@ -156,7 +156,7 @@ class GravityRushGame extends FlameGame with PanDetector {
     scoreManager.processLanding(multi);
 
     add(_ScorePopup(
-      text: '×${multi}',
+      text: '×$multi',
       position: Vector2(x, _board.slotsY - 20),
       color: const Color(0xFF00FF88),
     ));

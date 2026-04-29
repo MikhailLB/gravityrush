@@ -13,7 +13,7 @@ import 'connection_lost_screen.dart';
 import 'push_optin_screen.dart';
 import 'web_host.dart' deferred as host;
 
-enum _ProgressStage { start, midway, filled }
+enum _ProgressStage { empty, start, half, almostFull, filled }
 
 class BootScreen extends StatefulWidget {
   final LocalStore store;
@@ -38,7 +38,7 @@ class BootScreen extends StatefulWidget {
 class _BootScreenState extends State<BootScreen> {
   VideoPlayerController? _player;
   bool _playerReady = false;
-  _ProgressStage _stage = _ProgressStage.start;
+  _ProgressStage _stage = _ProgressStage.empty;
   bool _leaving = false;
   Orientation? _lastOrientation;
 
@@ -86,7 +86,7 @@ class _BootScreenState extends State<BootScreen> {
   Future<void> _kickoff() async {
     widget.push.onTokenRotate = _onTokenRotate;
     await widget.push.bootstrap().catchError((_) {});
-    _setStage(_ProgressStage.start);
+    _setStage(_ProgressStage.empty);
 
     final mode = widget.store.readRuntimeMode();
     switch (mode) {
@@ -94,7 +94,7 @@ class _BootScreenState extends State<BootScreen> {
         await _runBrowserMode();
         break;
       case RuntimeMode.arcade:
-        _setStage(_ProgressStage.midway);
+        _setStage(_ProgressStage.almostFull);
         _setStage(_ProgressStage.filled);
         await Future.delayed(const Duration(milliseconds: 600));
         _goArcade();
@@ -106,7 +106,7 @@ class _BootScreenState extends State<BootScreen> {
   }
 
   Future<void> _runFirstLaunch() async {
-    _setStage(_ProgressStage.start);
+    _setStage(_ProgressStage.empty);
 
     final online = await widget.net.isOnline();
     if (!online) {
@@ -115,12 +115,14 @@ class _BootScreenState extends State<BootScreen> {
       return;
     }
 
-    _setStage(_ProgressStage.midway);
+    _setStage(_ProgressStage.start);
     await widget.attribution.warmup();
+    _setStage(_ProgressStage.half);
     await Future.wait([
       widget.attribution.awaitConversion(),
       widget.attribution.awaitDeepLink(),
     ]);
+    _setStage(_ProgressStage.almostFull);
 
     final locale = Platform.localeName.replaceAll('-', '_');
     final body = await widget.attribution.assembleRequest(
@@ -145,7 +147,7 @@ class _BootScreenState extends State<BootScreen> {
   }
 
   Future<void> _runBrowserMode() async {
-    _setStage(_ProgressStage.midway);
+    _setStage(_ProgressStage.start);
 
     final online = await widget.net.isOnline();
     if (!online) {
@@ -168,12 +170,14 @@ class _BootScreenState extends State<BootScreen> {
     final cached = await widget.store.readCachedTarget();
 
     await widget.attribution.warmup();
+    _setStage(_ProgressStage.half);
     await Future.wait([
       widget.attribution.awaitConversion(
         timeout: const Duration(seconds: 10),
       ),
       widget.attribution.awaitDeepLink(),
     ]);
+    _setStage(_ProgressStage.almostFull);
 
     final locale = Platform.localeName.replaceAll('-', '_');
     final body = await widget.attribution.assembleRequest(
@@ -250,6 +254,7 @@ class _BootScreenState extends State<BootScreen> {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => ConnectionLostScreen(
+          net: widget.net,
           retryBuilder: (_) => BootScreen(
             store: widget.store,
             net: widget.net,
@@ -280,8 +285,10 @@ class _BootScreenState extends State<BootScreen> {
   @override
   Widget build(BuildContext context) {
     final barAsset = switch (_stage) {
-      _ProgressStage.start => AssetPaths.loadingBarEmpty,
-      _ProgressStage.midway => AssetPaths.loadingBarAlmostFull,
+      _ProgressStage.empty => AssetPaths.loadingBarEmpty,
+      _ProgressStage.start => AssetPaths.loadingBarStart,
+      _ProgressStage.half => AssetPaths.loadingBarHalf,
+      _ProgressStage.almostFull => AssetPaths.loadingBarAlmostFull,
       _ProgressStage.filled => AssetPaths.loadingBarFull,
     };
 
@@ -308,23 +315,31 @@ class _BootScreenState extends State<BootScreen> {
                 : const SizedBox.shrink(),
           ),
           if (_playerReady)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: MediaQuery.of(context).padding.bottom + 60,
-              child: Center(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  child: Image.asset(
-                    barAsset,
-                    key: ValueKey(barAsset),
-                    width: 250,
-                    fit: BoxFit.contain,
-                    filterQuality: FilterQuality.high,
-                    errorBuilder: (_, e, s) => const SizedBox(height: 30),
+            Builder(
+              builder: (ctx) {
+                final mq = MediaQuery.of(ctx);
+                final landscape = _lastOrientation == Orientation.landscape;
+                final bottom = mq.padding.bottom +
+                    (landscape ? mq.size.height * 0.035 : 60.0);
+                return Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: bottom,
+                  child: Center(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      child: Image.asset(
+                        barAsset,
+                        key: ValueKey(barAsset),
+                        width: landscape ? 210 : 250,
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.high,
+                        errorBuilder: (_, e, s) => const SizedBox(height: 30),
+                      ),
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
         ],
       ),

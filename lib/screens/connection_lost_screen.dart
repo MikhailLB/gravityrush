@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
+import '../services/network_monitor.dart';
 import '../utils/asset_paths.dart';
 
 class ConnectionLostScreen extends StatefulWidget {
   final WidgetBuilder retryBuilder;
+  final NetworkMonitor net;
 
-  const ConnectionLostScreen({super.key, required this.retryBuilder});
+  const ConnectionLostScreen({
+    super.key,
+    required this.retryBuilder,
+    required this.net,
+  });
 
   @override
   State<ConnectionLostScreen> createState() => _ConnectionLostScreenState();
@@ -38,9 +44,17 @@ class _ConnectionLostScreenState extends State<ConnectionLostScreen>
     if (_busy) return;
     await _pulse.forward();
     await _pulse.reverse();
-    setState(() => _busy = true);
-    await Future.delayed(const Duration(milliseconds: 800));
     if (!mounted) return;
+    setState(() => _busy = true);
+
+    final online = await widget.net.isOnline();
+    if (!mounted) return;
+
+    if (!online) {
+      setState(() => _busy = false);
+      return;
+    }
+
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: widget.retryBuilder),
     );
@@ -48,38 +62,62 @@ class _ConnectionLostScreenState extends State<ConnectionLostScreen>
 
   @override
   Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    final landscape = mq.orientation == Orientation.landscape;
+    final bgAsset = landscape ? AssetPaths.noWifiHorizontal : AssetPaths.noWifi;
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         fit: StackFit.expand,
         children: [
           Image.asset(
-            AssetPaths.noWifi,
+            bgAsset,
             fit: BoxFit.cover,
             errorBuilder: (_, e, s) => const ColoredBox(color: Colors.black),
           ),
-          SafeArea(
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: Padding(
-                padding: const EdgeInsets.only(
-                    bottom: 60, left: 36, right: 36),
-                child: ScaleTransition(
-                  scale: _scale,
-                  child: _buildButton(),
-                ),
-              ),
-            ),
-          ),
+          if (landscape) _buildLandscapeAction(mq) else _buildPortraitAction(),
         ],
       ),
     );
   }
 
-  Widget _buildButton() {
+  Widget _buildPortraitAction() {
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 60, left: 36, right: 36),
+          child: ScaleTransition(
+            scale: _scale,
+            child: _buildButton(height: 52),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLandscapeAction(MediaQueryData mq) {
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: mq.padding.bottom + 14,
+      child: Center(
+        child: ScaleTransition(
+          scale: _scale,
+          child: SizedBox(
+            width: mq.size.width * 0.32,
+            child: _buildButton(height: 44),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildButton({required double height}) {
     return SizedBox(
       width: double.infinity,
-      height: 56,
+      height: height,
       child: DecoratedBox(
         decoration: BoxDecoration(
           gradient: _busy
