@@ -41,6 +41,7 @@ class _BootScreenState extends State<BootScreen> {
   _ProgressStage _stage = _ProgressStage.empty;
   bool _leaving = false;
   Orientation? _lastOrientation;
+  bool _assetsPrecached = false;
 
   @override
   void initState() {
@@ -55,6 +56,20 @@ class _BootScreenState extends State<BootScreen> {
     if (orientation != _lastOrientation) {
       _lastOrientation = orientation;
       _loadVideo(orientation);
+    }
+    if (!_assetsPrecached) {
+      _assetsPrecached = true;
+      // Pre-warm progress-bar frames so AnimatedOpacity transitions
+      // don't flash to a blank cell — without precache each newly
+      // displayed PNG decodes lazily and the user sees a one-frame gap.
+      precacheImage(const AssetImage(AssetPaths.loadingBarEmpty), context);
+      precacheImage(const AssetImage(AssetPaths.loadingBarStart), context);
+      precacheImage(const AssetImage(AssetPaths.loadingBarHalf), context);
+      precacheImage(
+        const AssetImage(AssetPaths.loadingBarAlmostFull),
+        context,
+      );
+      precacheImage(const AssetImage(AssetPaths.loadingBarFull), context);
     }
   }
 
@@ -284,14 +299,6 @@ class _BootScreenState extends State<BootScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final barAsset = switch (_stage) {
-      _ProgressStage.empty => AssetPaths.loadingBarEmpty,
-      _ProgressStage.start => AssetPaths.loadingBarStart,
-      _ProgressStage.half => AssetPaths.loadingBarHalf,
-      _ProgressStage.almostFull => AssetPaths.loadingBarAlmostFull,
-      _ProgressStage.filled => AssetPaths.loadingBarFull,
-    };
-
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
@@ -321,27 +328,72 @@ class _BootScreenState extends State<BootScreen> {
                 final landscape = _lastOrientation == Orientation.landscape;
                 final bottom = mq.padding.bottom +
                     (landscape ? mq.size.height * 0.035 : 60.0);
+                final width = landscape ? 210.0 : 250.0;
                 return Positioned(
                   left: 0,
                   right: 0,
                   bottom: bottom,
                   child: Center(
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
-                      child: Image.asset(
-                        barAsset,
-                        key: ValueKey(barAsset),
-                        width: landscape ? 210 : 250,
-                        fit: BoxFit.contain,
-                        filterQuality: FilterQuality.high,
-                        errorBuilder: (_, e, s) => const SizedBox(height: 30),
-                      ),
+                    child: SizedBox(
+                      width: width,
+                      child: _buildProgressBar(width),
                     ),
                   ),
                 );
               },
             ),
         ],
+      ),
+    );
+  }
+
+  /// Cross-fade progress bar: every stage frame is rendered in the same
+  /// Stack and shown by AnimatedOpacity. Keeping element identity
+  /// avoids the blank-frame flash that AnimatedSwitcher used to cause
+  /// when it tore down and rebuilt the previous Image on every stage
+  /// transition.
+  Widget _buildProgressBar(double width) {
+    final i = _stage.index;
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        _barFrame(AssetPaths.loadingBarEmpty, width, opacity: 1.0),
+        _barFrame(
+          AssetPaths.loadingBarStart,
+          width,
+          opacity: i >= 1 ? 1.0 : 0.0,
+        ),
+        _barFrame(
+          AssetPaths.loadingBarHalf,
+          width,
+          opacity: i >= 2 ? 1.0 : 0.0,
+        ),
+        _barFrame(
+          AssetPaths.loadingBarAlmostFull,
+          width,
+          opacity: i >= 3 ? 1.0 : 0.0,
+        ),
+        _barFrame(
+          AssetPaths.loadingBarFull,
+          width,
+          opacity: i >= 4 ? 1.0 : 0.0,
+        ),
+      ],
+    );
+  }
+
+  Widget _barFrame(String asset, double width, {required double opacity}) {
+    return AnimatedOpacity(
+      opacity: opacity,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOut,
+      child: Image.asset(
+        asset,
+        width: width,
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.high,
+        gaplessPlayback: true,
+        errorBuilder: (_, e, s) => const SizedBox(height: 30),
       ),
     );
   }

@@ -112,14 +112,19 @@ class CloudPushClient {
 
   Future<bool> _askConsentImpl() async {
     try {
-      final current = await _msg!.getNotificationSettings();
-      if (current.authorizationStatus != AuthorizationStatus.notDetermined) {
-        final ok = current.authorizationStatus ==
-                AuthorizationStatus.authorized ||
-            current.authorizationStatus == AuthorizationStatus.provisional;
-        await _store.writePushConsent(ok);
-        if (!ok) await _store.writePushPromptBlocked(true);
-        return ok;
+      // iOS exposes a meaningful tri-state: notDetermined / denied /
+      // authorized. Android always returns denied before the first
+      // request, so the early-exit branch only applies to iOS.
+      if (Platform.isIOS) {
+        final current = await _msg!.getNotificationSettings();
+        if (current.authorizationStatus != AuthorizationStatus.notDetermined) {
+          final ok = current.authorizationStatus ==
+                  AuthorizationStatus.authorized ||
+              current.authorizationStatus == AuthorizationStatus.provisional;
+          await _store.writePushConsent(ok);
+          if (!ok) await _store.writePushPromptBlocked(true);
+          return ok;
+        }
       }
 
       final result = await _msg!.requestPermission(
@@ -132,7 +137,14 @@ class CloudPushClient {
               AuthorizationStatus.authorized ||
           result.authorizationStatus == AuthorizationStatus.provisional;
       await _store.writePushConsent(ok);
-      if (!ok) await _store.writePushPromptBlocked(true);
+      // Per spec: on first denial we DO NOT permanently block — caller
+      // (PushOptInScreen) sets a 3-day cooldown so the screen reappears
+      // after that window. Permanent block is reserved for iOS, where a
+      // denied status genuinely means "OS will never surface the prompt
+      // again". Android relies on the cooldown alone.
+      if (!ok && Platform.isIOS) {
+        await _store.writePushPromptBlocked(true);
+      }
       return ok;
     } catch (_) {
       return false;
@@ -140,6 +152,11 @@ class CloudPushClient {
   }
 
   Future<void> _syncPromptBlockFromSystem() async {
+    // Android's pre-prompt status is always "denied" — using it would
+    // lock new installs out of the opt-in screen forever. Restrict the
+    // sync to iOS, where notDetermined / denied / authorized actually
+    // reflect the real OS state.
+    if (!Platform.isIOS) return;
     try {
       final current = await _msg!.getNotificationSettings();
       final status = current.authorizationStatus;
