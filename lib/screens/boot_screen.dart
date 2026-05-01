@@ -13,8 +13,6 @@ import 'connection_lost_screen.dart';
 import 'push_optin_screen.dart';
 import 'web_host.dart' deferred as host;
 
-enum _ProgressStage { empty, start, half, almostFull, filled }
-
 class BootScreen extends StatefulWidget {
   final LocalStore store;
   final NetworkMonitor net;
@@ -38,10 +36,8 @@ class BootScreen extends StatefulWidget {
 class _BootScreenState extends State<BootScreen> {
   VideoPlayerController? _player;
   bool _playerReady = false;
-  _ProgressStage _stage = _ProgressStage.empty;
   bool _leaving = false;
   Orientation? _lastOrientation;
-  bool _assetsPrecached = false;
 
   @override
   void initState() {
@@ -56,20 +52,6 @@ class _BootScreenState extends State<BootScreen> {
     if (orientation != _lastOrientation) {
       _lastOrientation = orientation;
       _loadVideo(orientation);
-    }
-    if (!_assetsPrecached) {
-      _assetsPrecached = true;
-      // Pre-warm progress-bar frames so AnimatedOpacity transitions
-      // don't flash to a blank cell — without precache each newly
-      // displayed PNG decodes lazily and the user sees a one-frame gap.
-      precacheImage(const AssetImage(AssetPaths.loadingBarEmpty), context);
-      precacheImage(const AssetImage(AssetPaths.loadingBarStart), context);
-      precacheImage(const AssetImage(AssetPaths.loadingBarHalf), context);
-      precacheImage(
-        const AssetImage(AssetPaths.loadingBarAlmostFull),
-        context,
-      );
-      precacheImage(const AssetImage(AssetPaths.loadingBarFull), context);
     }
   }
 
@@ -101,7 +83,6 @@ class _BootScreenState extends State<BootScreen> {
   Future<void> _kickoff() async {
     widget.push.onTokenRotate = _onTokenRotate;
     await widget.push.bootstrap().catchError((_) {});
-    _setStage(_ProgressStage.empty);
 
     final mode = widget.store.readRuntimeMode();
     switch (mode) {
@@ -109,8 +90,6 @@ class _BootScreenState extends State<BootScreen> {
         await _runBrowserMode();
         break;
       case RuntimeMode.arcade:
-        _setStage(_ProgressStage.almostFull);
-        _setStage(_ProgressStage.filled);
         await Future.delayed(const Duration(milliseconds: 600));
         _goArcade();
         break;
@@ -121,8 +100,6 @@ class _BootScreenState extends State<BootScreen> {
   }
 
   Future<void> _runFirstLaunch() async {
-    _setStage(_ProgressStage.empty);
-
     final online = await widget.net.isOnline();
     if (!online) {
       if (!mounted) return;
@@ -130,14 +107,11 @@ class _BootScreenState extends State<BootScreen> {
       return;
     }
 
-    _setStage(_ProgressStage.start);
     await widget.attribution.warmup();
-    _setStage(_ProgressStage.half);
     await Future.wait([
       widget.attribution.awaitConversion(),
       widget.attribution.awaitDeepLink(),
     ]);
-    _setStage(_ProgressStage.almostFull);
 
     final locale = Platform.localeName.replaceAll('-', '_');
     final body = await widget.attribution.assembleRequest(
@@ -148,13 +122,11 @@ class _BootScreenState extends State<BootScreen> {
 
     if (reply.accepted && reply.target != null) {
       await widget.store.writeRuntimeMode(RuntimeMode.browser);
-      _setStage(_ProgressStage.filled);
       await Future.delayed(const Duration(milliseconds: 400));
       if (!mounted) return;
       _goWebContent(reply.target!);
     } else {
       await widget.store.writeRuntimeMode(RuntimeMode.arcade);
-      _setStage(_ProgressStage.filled);
       await Future.delayed(const Duration(milliseconds: 400));
       if (!mounted) return;
       _goArcade();
@@ -162,11 +134,8 @@ class _BootScreenState extends State<BootScreen> {
   }
 
   Future<void> _runBrowserMode() async {
-    _setStage(_ProgressStage.start);
-
     final online = await widget.net.isOnline();
     if (!online) {
-      _setStage(_ProgressStage.filled);
       await Future.delayed(const Duration(milliseconds: 400));
       if (!mounted) return;
       _goOffline(firstLaunch: false);
@@ -175,7 +144,6 @@ class _BootScreenState extends State<BootScreen> {
 
     final pushTarget = await widget.store.takePushTarget();
     if (pushTarget != null) {
-      _setStage(_ProgressStage.filled);
       await Future.delayed(const Duration(milliseconds: 400));
       if (!mounted) return;
       _goWebContent(pushTarget);
@@ -185,14 +153,12 @@ class _BootScreenState extends State<BootScreen> {
     final cached = await widget.store.readCachedTarget();
 
     await widget.attribution.warmup();
-    _setStage(_ProgressStage.half);
     await Future.wait([
       widget.attribution.awaitConversion(
         timeout: const Duration(seconds: 10),
       ),
       widget.attribution.awaitDeepLink(),
     ]);
-    _setStage(_ProgressStage.almostFull);
 
     final locale = Platform.localeName.replaceAll('-', '_');
     final body = await widget.attribution.assembleRequest(
@@ -200,7 +166,6 @@ class _BootScreenState extends State<BootScreen> {
       pushToken: widget.push.token,
     );
     final reply = await widget.config.dispatch(body);
-    _setStage(_ProgressStage.filled);
     await Future.delayed(const Duration(milliseconds: 400));
     if (!mounted) return;
 
@@ -222,10 +187,6 @@ class _BootScreenState extends State<BootScreen> {
       pushToken: newToken,
     );
     widget.config.dispatch(body);
-  }
-
-  void _setStage(_ProgressStage s) {
-    if (mounted) setState(() => _stage = s);
   }
 
   Future<void> _goWebContent(String url) async {
@@ -321,80 +282,9 @@ class _BootScreenState extends State<BootScreen> {
                   )
                 : const SizedBox.shrink(),
           ),
-          if (_playerReady)
-            Builder(
-              builder: (ctx) {
-                final mq = MediaQuery.of(ctx);
-                final landscape = _lastOrientation == Orientation.landscape;
-                final bottom = mq.padding.bottom +
-                    (landscape ? mq.size.height * 0.035 : 60.0);
-                final width = landscape ? 210.0 : 250.0;
-                return Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: bottom,
-                  child: Center(
-                    child: SizedBox(
-                      width: width,
-                      child: _buildProgressBar(width),
-                    ),
-                  ),
-                );
-              },
-            ),
         ],
       ),
     );
   }
 
-  /// Cross-fade progress bar: every stage frame is rendered in the same
-  /// Stack and shown by AnimatedOpacity. Keeping element identity
-  /// avoids the blank-frame flash that AnimatedSwitcher used to cause
-  /// when it tore down and rebuilt the previous Image on every stage
-  /// transition.
-  Widget _buildProgressBar(double width) {
-    final i = _stage.index;
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        _barFrame(AssetPaths.loadingBarEmpty, width, opacity: 1.0),
-        _barFrame(
-          AssetPaths.loadingBarStart,
-          width,
-          opacity: i >= 1 ? 1.0 : 0.0,
-        ),
-        _barFrame(
-          AssetPaths.loadingBarHalf,
-          width,
-          opacity: i >= 2 ? 1.0 : 0.0,
-        ),
-        _barFrame(
-          AssetPaths.loadingBarAlmostFull,
-          width,
-          opacity: i >= 3 ? 1.0 : 0.0,
-        ),
-        _barFrame(
-          AssetPaths.loadingBarFull,
-          width,
-          opacity: i >= 4 ? 1.0 : 0.0,
-        ),
-      ],
-    );
-  }
-
-  Widget _barFrame(String asset, double width, {required double opacity}) {
-    return AnimatedOpacity(
-      opacity: opacity,
-      duration: const Duration(milliseconds: 280),
-      curve: Curves.easeOut,
-      child: Image.asset(
-        asset,
-        width: width,
-        fit: BoxFit.contain,
-        filterQuality: FilterQuality.high,
-        gaplessPlayback: true,
-        errorBuilder: (_, e, s) => const SizedBox(height: 30),
-      ),
-    );
-  }
 }
