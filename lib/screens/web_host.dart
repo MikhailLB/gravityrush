@@ -192,57 +192,43 @@ class _WebHostState extends State<WebHost> with WidgetsBindingObserver {
   }
 
   void _injectKeyboardScroll() {
+    // Minimal keyboard helper. We rely on `resizeToAvoidBottomInset: true`
+    // and Android's adjustResize so the WebView gets the correct viewport
+    // height when the soft keyboard appears. The script's only job is to
+    // make sure the focused field ends up visible inside that smaller
+    // viewport — exactly once per focus, no padding hacks, no repeated
+    // scrollBy. Earlier versions injected paddingBottom=45vh and ran
+    // four delayed scrollIntoView passes which caused the blocks to
+    // jitter under the keyboard.
     _wv.runJavaScript(r'''
 (function(){
   if (window.__grKbFix) return;
   window.__grKbFix = true;
-  function inputLike(n){ return n && (n.tagName==='INPUT' || n.tagName==='TEXTAREA' || n.isContentEditable); }
-  function markPage(){
-    document.documentElement.style.scrollBehavior = 'auto';
-    document.documentElement.style.minHeight = '100%';
-    document.body.style.minHeight = '100%';
-    document.body.style.paddingBottom = '45vh';
+  function inputLike(n){
+    return n && (n.tagName === 'INPUT'
+      || n.tagName === 'TEXTAREA'
+      || n.isContentEditable);
   }
-  function focusRoll(){
+  function ensureVisible(){
     var el = document.activeElement;
     if (!inputLike(el)) return;
-    markPage();
     var vp = window.visualViewport;
-    var extra = vp ? Math.max(160, window.innerHeight - vp.height + 24) : 180;
-    document.body.style.paddingBottom = extra + 'px';
-    if (vp){
-      var r = el.getBoundingClientRect();
-      if (r.bottom > vp.offsetTop + vp.height - 90 || r.top < vp.offsetTop + 10){
-        el.scrollIntoView({ behavior:'auto', block:'center', inline:'nearest' });
-        window.scrollBy(0, 80);
+    var rect = el.getBoundingClientRect();
+    var top = vp ? vp.offsetTop : 0;
+    var bottom = vp ? (vp.offsetTop + vp.height) : window.innerHeight;
+    if (rect.bottom > bottom - 16 || rect.top < top + 16){
+      try {
+        el.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
+      } catch (_) {
+        el.scrollIntoView();
       }
-    } else {
-      el.scrollIntoView({ behavior:'auto', block:'center', inline:'nearest' });
-      window.scrollBy(0, 120);
     }
   }
   document.addEventListener('focusin', function(e){
-    if (inputLike(e.target)){
-      setTimeout(focusRoll,80);
-      setTimeout(focusRoll,250);
-      setTimeout(focusRoll,550);
-      setTimeout(focusRoll,900);
-    }
+    if (!inputLike(e.target)) return;
+    // Single pass after the keyboard animation has had time to settle.
+    setTimeout(ensureVisible, 280);
   });
-  document.addEventListener('click', function(e){
-    if (inputLike(e.target)){
-      setTimeout(focusRoll,80);
-      setTimeout(focusRoll,350);
-    }
-  }, true);
-  if (window.visualViewport){
-    var prev = window.visualViewport.height;
-    window.visualViewport.addEventListener('resize', function(){
-      var h = window.visualViewport.height;
-      if (h < prev){ setTimeout(focusRoll,50); setTimeout(focusRoll,250); setTimeout(focusRoll,600); }
-      prev = h;
-    });
-  }
 })();
 ''');
   }
