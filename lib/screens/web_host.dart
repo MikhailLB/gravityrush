@@ -204,11 +204,36 @@ class _WebHostState extends State<WebHost> with WidgetsBindingObserver {
 (function(){
   if (window.__grKbFix) return;
   window.__grKbFix = true;
+
   function inputLike(n){
     return n && (n.tagName === 'INPUT'
       || n.tagName === 'TEXTAREA'
       || n.isContentEditable);
   }
+
+  // savedY = scroll position at the moment the FIRST input in a typing
+  // session got focus. We restore to it once every input has lost focus
+  // again. Without restore, ensureVisible's scrollIntoView leaves the
+  // page scrolled up after the keyboard is dismissed, which looks like
+  // "the login modal jumped under the keyboard" in the UI.
+  var savedY = null;
+  var savedScrollerY = null;
+  var savedScroller = null;
+  var blurTimer = null;
+
+  function findScroller(node){
+    var el = node && node.parentElement;
+    while (el && el !== document.body && el !== document.documentElement){
+      var s = getComputedStyle(el);
+      var oy = s.overflowY;
+      if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight){
+        return el;
+      }
+      el = el.parentElement;
+    }
+    return null;
+  }
+
   function ensureVisible(){
     var el = document.activeElement;
     if (!inputLike(el)) return;
@@ -224,10 +249,49 @@ class _WebHostState extends State<WebHost> with WidgetsBindingObserver {
       }
     }
   }
+
+  function snapshotScroll(target){
+    if (savedY === null){
+      savedY = window.scrollY || window.pageYOffset || 0;
+      savedScroller = findScroller(target);
+      savedScrollerY = savedScroller ? savedScroller.scrollTop : null;
+    }
+  }
+
+  function restoreScroll(){
+    if (savedScroller && savedScrollerY !== null){
+      try { savedScroller.scrollTop = savedScrollerY; } catch(_){}
+    }
+    if (savedY !== null){
+      try {
+        window.scrollTo({ top: savedY, left: 0, behavior: 'auto' });
+      } catch(_){
+        window.scrollTo(0, savedY);
+      }
+    }
+    savedY = null;
+    savedScroller = null;
+    savedScrollerY = null;
+  }
+
   document.addEventListener('focusin', function(e){
     if (!inputLike(e.target)) return;
-    // Single pass after the keyboard animation has had time to settle.
+    if (blurTimer){ clearTimeout(blurTimer); blurTimer = null; }
+    snapshotScroll(e.target);
     setTimeout(ensureVisible, 280);
+  });
+
+  document.addEventListener('focusout', function(e){
+    if (!inputLike(e.target)) return;
+    if (blurTimer) clearTimeout(blurTimer);
+    // Wait long enough to know whether focus is moving to ANOTHER input
+    // (tab between login fields) or leaving the form entirely. Only the
+    // latter triggers a scroll restore.
+    blurTimer = setTimeout(function(){
+      blurTimer = null;
+      if (inputLike(document.activeElement)) return;
+      restoreScroll();
+    }, 200);
   });
 })();
 ''');
