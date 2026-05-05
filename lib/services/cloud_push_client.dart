@@ -14,6 +14,27 @@ const String pushIconRes = '@drawable/ic_notification';
 @pragma('vm:entry-point')
 Future<void> _backgroundHandler(RemoteMessage _) async {}
 
+/// Top-level entry-point invoked by `flutter_local_notifications` when the
+/// user taps a locally-shown notification while the Dart isolate is not
+/// alive (cold start / background). On iOS we no longer surface local
+/// notifications at all, so this is effectively only used by Android.
+@pragma('vm:entry-point')
+void _trayBackgroundTapHandler(NotificationResponse resp) {
+  final payload = resp.payload;
+  if (payload == null || payload.isEmpty) return;
+  try {
+    final decoded = jsonDecode(payload);
+    if (decoded is Map && decoded['url'] is String) {
+      final url = decoded['url'] as String;
+      if (url.isEmpty) return;
+      // A background isolate cannot share the foreground LocalStore instance,
+      // so we open a fresh one just for the stash write. The foreground app
+      // reads it back via writePushTarget / readPushTarget on next entry.
+      LocalStore().writePushTarget(url);
+    }
+  } catch (_) {}
+}
+
 class CloudPushClient {
   final FlutterLocalNotificationsPlugin _tray =
       FlutterLocalNotificationsPlugin();
@@ -39,6 +60,19 @@ class CloudPushClient {
       FirebaseMessaging.onBackgroundMessage(_backgroundHandler);
       await _configureLocalTray();
 
+      // iOS foreground presentation: enable banner / badge / sound. Combined
+      // with the Notification Service Extension this lets the system render
+      // rich (image-attached) push notifications natively in foreground —
+      // we no longer need to schedule a duplicate flutter_local_notifications
+      // copy on iOS. No-op on Android.
+      try {
+        await _msg!.setForegroundNotificationPresentationOptions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+      } catch (_) {}
+
       _token = await _msg!.getToken();
 
       _msg!.onTokenRefresh.listen((fresh) {
@@ -50,7 +84,7 @@ class CloudPushClient {
       FirebaseMessaging.onMessageOpenedApp.listen(_onBackgroundTap);
 
       final cold = await _msg!.getInitialMessage();
-      if (cold != null) _onColdStart(cold);
+      if (cold != null) await _onColdStart(cold);
 
       _ready = true;
     } catch (_) {
@@ -79,6 +113,7 @@ class CloudPushClient {
           }
         } catch (_) {}
       },
+      onDidReceiveBackgroundNotificationResponse: _trayBackgroundTapHandler,
     );
 
     if (Platform.isAndroid) {
@@ -211,12 +246,18 @@ class CloudPushClient {
     final notif = message.notification;
     if (notif == null) return;
 
-    String? imageUrl;
-    if (Platform.isAndroid) {
-      imageUrl = notif.android?.imageUrl;
-    } else {
-      imageUrl = notif.apple?.imageUrl;
-    }
+    // On iOS the system already presents the FCM notification in foreground
+    // (alert/badge/sound enabled in bootstrap) and the Notification Service
+    // Extension attaches the image before display. Scheduling our own
+    // flutter_local_notifications copy here used to produce a duplicate
+    // banner and broke tap routing because Firebase's swizzled
+    // UNUserNotificationCenter delegate intercepts taps on locally-scheduled
+    // notifications differently from FCM-displayed ones. Taps on the system
+    // notification flow through onMessageOpenedApp which onRemoteTarget
+    // subscribers already handle.
+    if (Platform.isIOS) return;
+
+    final imageUrl = notif.android?.imageUrl;
 
     AndroidNotificationDetails? androidDetails;
     if (imageUrl != null && imageUrl.isNotEmpty) {
@@ -252,18 +293,18 @@ class CloudPushClient {
       notif.hashCode,
       notif.title,
       notif.body,
-      NotificationDetails(
-        android: androidDetails,
-        iOS: const DarwinNotificationDetails(),
-      ),
+      NotificationDetails(android: androidDetails),
       payload: payload,
     );
   }
 
-  void _onColdStart(RemoteMessage message) {
+  Future<void> _onColdStart(RemoteMessage message) async {
     final url = message.data['url'] as String?;
     if (url != null && url.isNotEmpty) {
-      _store.writePushTarget(url);
+      // Await the stash write so the URL is persisted before bootstrap()
+      // returns and the entry flow calls takePushTarget(). Without await
+      // the async write could complete after the read, losing the URL.
+      await _store.writePushTarget(url);
     }
   }
 
