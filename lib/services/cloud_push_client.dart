@@ -40,7 +40,6 @@ class CloudPushClient {
       await _configureLocalTray();
 
       _token = await _msg!.getToken();
-      await _syncPromptBlockFromSystem();
 
       _msg!.onTokenRefresh.listen((fresh) {
         _token = fresh;
