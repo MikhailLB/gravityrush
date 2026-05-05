@@ -236,7 +236,15 @@ class _BootScreenState extends State<BootScreen> {
     await primeBrowser();
     if (!mounted) return;
 
-    if (widget.store.needsPushPrompt()) {
+    // Two gates before we show the offer screen:
+    //   1. App-side cooldown (3 days after Skip).
+    //   2. The OS must still be able to show a system prompt. Once the user
+    //      has system-denied, our ALLOW button is a dead end — skip the
+    //      offer and go straight to the WebView.
+    final canPrompt = widget.store.needsPushPrompt() &&
+        await widget.push.shouldOfferConsent();
+
+    if (canPrompt) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => PushOptInScreen(

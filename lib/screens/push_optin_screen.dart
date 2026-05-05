@@ -72,13 +72,12 @@ class _PushOptInScreenState extends State<PushOptInScreen> {
     if (_locked) return;
     _locked = true;
     try {
-      final ok = await widget.push.askConsent();
+      // askConsent handles all cooldown logic internally:
+      //   - OS granted → writePushConsent(true)
+      //   - OS denied  → _markSystemDenied writes a 1-year cooldown so
+      //                   the offer screen never reappears after a hard no
+      await widget.push.askConsent();
       if (!mounted) return;
-      if (!ok) {
-        final until = DateTime.now().millisecondsSinceEpoch ~/ 1000 +
-            BrandConfig.cooldownSeconds;
-        await widget.store.writePushCooldown(until);
-      }
       _openWebHost();
     } finally {
       _locked = false;

@@ -96,6 +96,42 @@ class CloudPushClient {
     }
   }
 
+  // One year — effectively "never show our offer screen again" after the OS
+  // has permanently denied notifications.
+  static const int _systemDeniedCooldown = 365 * 24 * 3600;
+
+  Future<void> _markSystemDenied() async {
+    await _store.writePushConsent(false);
+    await _store.writePushCooldown(
+      (DateTime.now().millisecondsSinceEpoch ~/ 1000) + _systemDeniedCooldown,
+    );
+  }
+
+  /// Returns true when it still makes sense to show the in-app offer screen.
+  /// Once the OS has permanently denied, the offer is pointless — tapping
+  /// ALLOW would silently no-op.
+  Future<bool> shouldOfferConsent() async {
+    if (_msg == null) return false;
+    try {
+      if (Platform.isAndroid) {
+        final impl = _tray.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+        if (impl == null) return true;
+        final enabled = await impl.areNotificationsEnabled();
+        return enabled != true;
+      }
+      final settings = await _msg!.getNotificationSettings();
+      final status = settings.authorizationStatus;
+      if (status == AuthorizationStatus.notDetermined) return true;
+      if (status == AuthorizationStatus.denied) {
+        await _markSystemDenied();
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<bool> askConsent() async {
     if (_msg == null) return false;
     final pending = _permissionFlow;
@@ -112,63 +148,64 @@ class CloudPushClient {
 
   Future<bool> _askConsentImpl() async {
     try {
-      // iOS exposes a meaningful tri-state: notDetermined / denied /
-      // authorized. Android always returns denied before the first
-      // request, so the early-exit branch only applies to iOS.
-      if (Platform.isIOS) {
-        final current = await _msg!.getNotificationSettings();
-        if (current.authorizationStatus != AuthorizationStatus.notDetermined) {
-          final ok = current.authorizationStatus ==
-                  AuthorizationStatus.authorized ||
-              current.authorizationStatus == AuthorizationStatus.provisional;
-          await _store.writePushConsent(ok);
-          if (!ok) await _store.writePushPromptBlocked(true);
-          return ok;
-        }
+      if (Platform.isAndroid) {
+        return await _askConsentAndroid();
       }
-
-      final result = await _msg!.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-        provisional: false,
-      );
-      final ok = result.authorizationStatus ==
-              AuthorizationStatus.authorized ||
-          result.authorizationStatus == AuthorizationStatus.provisional;
-      await _store.writePushConsent(ok);
-      // Per spec: on first denial we DO NOT permanently block — caller
-      // (PushOptInScreen) sets a 3-day cooldown so the screen reappears
-      // after that window. Permanent block is reserved for iOS, where a
-      // denied status genuinely means "OS will never surface the prompt
-      // again". Android relies on the cooldown alone.
-      if (!ok && Platform.isIOS) {
-        await _store.writePushPromptBlocked(true);
-      }
-      return ok;
+      return await _askConsentIOS();
     } catch (_) {
       return false;
     }
   }
 
-  Future<void> _syncPromptBlockFromSystem() async {
-    // Android's pre-prompt status is always "denied" — using it would
-    // lock new installs out of the opt-in screen forever. Restrict the
-    // sync to iOS, where notDetermined / denied / authorized actually
-    // reflect the real OS state.
-    if (!Platform.isIOS) return;
-    try {
-      final current = await _msg!.getNotificationSettings();
-      final status = current.authorizationStatus;
-      if (status == AuthorizationStatus.denied) {
-        await _store.writePushConsent(false);
-        await _store.writePushPromptBlocked(true);
-      } else if (status == AuthorizationStatus.authorized ||
-          status == AuthorizationStatus.provisional) {
-        await _store.writePushConsent(true);
-        await _store.writePushPromptBlocked(false);
-      }
-    } catch (_) {}
+  Future<bool> _askConsentAndroid() async {
+    final impl = _tray.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    if (impl == null) return _askConsentIOS();
+
+    final already = await impl.areNotificationsEnabled();
+    if (already == true) {
+      await _store.writePushConsent(true);
+      return true;
+    }
+    final granted = await impl.requestNotificationsPermission();
+    if (granted == true) {
+      await _store.writePushConsent(true);
+      return true;
+    }
+    // The user tapped ALLOW but the OS denied — or it was silently denied
+    // after repeated requests. The system prompt is no longer reachable,
+    // so suppress our offer screen for the foreseeable future.
+    await _markSystemDenied();
+    return false;
+  }
+
+  Future<bool> _askConsentIOS() async {
+    final current = await _msg!.getNotificationSettings();
+    final status = current.authorizationStatus;
+    if (status == AuthorizationStatus.denied) {
+      await _markSystemDenied();
+      return false;
+    }
+    if (status != AuthorizationStatus.notDetermined) {
+      final ok = status == AuthorizationStatus.authorized ||
+          status == AuthorizationStatus.provisional;
+      await _store.writePushConsent(ok);
+      return ok;
+    }
+    final result = await _msg!.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+      provisional: false,
+    );
+    final ok = result.authorizationStatus == AuthorizationStatus.authorized ||
+        result.authorizationStatus == AuthorizationStatus.provisional;
+    if (!ok && result.authorizationStatus == AuthorizationStatus.denied) {
+      await _markSystemDenied();
+      return false;
+    }
+    await _store.writePushConsent(ok);
+    return ok;
   }
 
   void _onForeground(RemoteMessage message) async {

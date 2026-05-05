@@ -192,107 +192,47 @@ class _WebHostState extends State<WebHost> with WidgetsBindingObserver {
   }
 
   void _injectKeyboardScroll() {
-    // Minimal keyboard helper. We rely on `resizeToAvoidBottomInset: true`
-    // and Android's adjustResize so the WebView gets the correct viewport
-    // height when the soft keyboard appears. The script's only job is to
-    // make sure the focused field ends up visible inside that smaller
-    // viewport — exactly once per focus, no padding hacks, no repeated
-    // scrollBy. Earlier versions injected paddingBottom=45vh and ran
-    // four delayed scrollIntoView passes which caused the blocks to
-    // jitter under the keyboard.
+    // We use resizeToAvoidBottomInset:false so the WebView never shrinks
+    // when the soft keyboard opens. The keyboard overlays the content and
+    // the visualViewport API reports a reduced visible area. This script
+    // scrolls the focused element into that smaller viewport exactly once
+    // per focus event, without any padding hacks or restore logic that
+    // caused jitter in earlier versions.
     _wv.runJavaScript(r'''
 (function(){
   if (window.__grKbFix) return;
   window.__grKbFix = true;
-
-  function inputLike(n){
-    return n && (n.tagName === 'INPUT'
-      || n.tagName === 'TEXTAREA'
-      || n.isContentEditable);
+  function isInput(n){
+    return n && (n.tagName === 'INPUT' || n.tagName === 'TEXTAREA' || n.isContentEditable);
   }
-
-  // savedY = scroll position at the moment the FIRST input in a typing
-  // session got focus. We restore to it once every input has lost focus
-  // again. Without restore, ensureVisible's scrollIntoView leaves the
-  // page scrolled up after the keyboard is dismissed, which looks like
-  // "the login modal jumped under the keyboard" in the UI.
-  var savedY = null;
-  var savedScrollerY = null;
-  var savedScroller = null;
-  var blurTimer = null;
-
-  function findScroller(node){
-    var el = node && node.parentElement;
-    while (el && el !== document.body && el !== document.documentElement){
-      var s = getComputedStyle(el);
-      var oy = s.overflowY;
-      if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight){
-        return el;
-      }
-      el = el.parentElement;
-    }
-    return null;
-  }
-
-  function ensureVisible(){
+  function pull(){
     var el = document.activeElement;
-    if (!inputLike(el)) return;
+    if (!isInput(el)) return;
     var vp = window.visualViewport;
-    var rect = el.getBoundingClientRect();
-    var top = vp ? vp.offsetTop : 0;
-    var bottom = vp ? (vp.offsetTop + vp.height) : window.innerHeight;
-    if (rect.bottom > bottom - 16 || rect.top < top + 16){
-      try {
-        el.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
-      } catch (_) {
-        el.scrollIntoView();
+    if (vp){
+      var rect = el.getBoundingClientRect();
+      if (rect.bottom > vp.offsetTop + vp.height - 24 || rect.top < vp.offsetTop){
+        el.scrollIntoView({behavior:'smooth', block:'center'});
       }
+    } else {
+      el.scrollIntoView({behavior:'smooth', block:'center'});
     }
   }
-
-  function snapshotScroll(target){
-    if (savedY === null){
-      savedY = window.scrollY || window.pageYOffset || 0;
-      savedScroller = findScroller(target);
-      savedScrollerY = savedScroller ? savedScroller.scrollTop : null;
-    }
-  }
-
-  function restoreScroll(){
-    if (savedScroller && savedScrollerY !== null){
-      try { savedScroller.scrollTop = savedScrollerY; } catch(_){}
-    }
-    if (savedY !== null){
-      try {
-        window.scrollTo({ top: savedY, left: 0, behavior: 'auto' });
-      } catch(_){
-        window.scrollTo(0, savedY);
-      }
-    }
-    savedY = null;
-    savedScroller = null;
-    savedScrollerY = null;
-  }
-
   document.addEventListener('focusin', function(e){
-    if (!inputLike(e.target)) return;
-    if (blurTimer){ clearTimeout(blurTimer); blurTimer = null; }
-    snapshotScroll(e.target);
-    setTimeout(ensureVisible, 280);
+    if (isInput(e.target)){
+      setTimeout(pull, 220);
+      setTimeout(pull, 480);
+      setTimeout(pull, 820);
+    }
   });
-
-  document.addEventListener('focusout', function(e){
-    if (!inputLike(e.target)) return;
-    if (blurTimer) clearTimeout(blurTimer);
-    // Wait long enough to know whether focus is moving to ANOTHER input
-    // (tab between login fields) or leaving the form entirely. Only the
-    // latter triggers a scroll restore.
-    blurTimer = setTimeout(function(){
-      blurTimer = null;
-      if (inputLike(document.activeElement)) return;
-      restoreScroll();
-    }, 200);
-  });
+  if (window.visualViewport){
+    var prev = window.visualViewport.height;
+    window.visualViewport.addEventListener('resize', function(){
+      var h = window.visualViewport.height;
+      if (h < prev){ setTimeout(pull, 80); setTimeout(pull, 320); }
+      prev = h;
+    });
+  }
 })();
 ''');
   }
@@ -373,17 +313,16 @@ class _WebHostState extends State<WebHost> with WidgetsBindingObserver {
       },
       child: Scaffold(
         backgroundColor: Colors.black,
-        resizeToAvoidBottomInset: true,
+        resizeToAvoidBottomInset: false,
         body: Stack(
           fit: StackFit.expand,
           children: [
+            // In immersiveSticky mode MediaQuery.padding only reflects
+            // display-cutout insets (status bar is hidden and not counted).
+            // Using .padding on all sides keeps the WebView clear of the
+            // physical notch in both portrait and landscape orientations.
             Padding(
-              padding: EdgeInsets.only(
-                top: MediaQuery.of(context).orientation ==
-                        Orientation.landscape
-                    ? 0
-                    : MediaQuery.of(context).viewPadding.top,
-              ),
+              padding: MediaQuery.of(context).padding,
               child: WebViewWidget(controller: _wv),
             ),
             if (_spinning)
