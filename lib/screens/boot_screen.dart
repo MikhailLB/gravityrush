@@ -182,8 +182,6 @@ class _BootScreenState extends State<BootScreen> {
       return;
     }
 
-    final cached = await widget.store.readCachedTarget();
-
     await widget.attribution.warmup();
     _setStage(_ProgressStage.half);
     await Future.wait([
@@ -208,6 +206,7 @@ class _BootScreenState extends State<BootScreen> {
       _goWebContent(reply.target!);
       return;
     }
+    final cached = await widget.store.readCachedTarget();
     if (cached != null) {
       _goWebContent(cached);
     } else {
