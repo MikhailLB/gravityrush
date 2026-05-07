@@ -18,6 +18,10 @@ abstract final class BrandConfig {
   static const displayTitle = 'Gravity Rush';
   static const iosAppId = '';
 
+  /// OneLink template id from the attribution dashboard (segment after onelink domain).
+  /// Required for Unified Deep Linking to reliably resolve deferred / retarget payloads.
+  static const appsFlyerOneLinkTemplateId = 'HI8V';
+
   static const cooldownSeconds = 259200;
   static const refreshDelaySeconds = 5;
 
