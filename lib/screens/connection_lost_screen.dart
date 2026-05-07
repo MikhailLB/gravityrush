@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/network_monitor.dart';
 import '../utils/asset_paths.dart';
@@ -19,6 +20,8 @@ class ConnectionLostScreen extends StatefulWidget {
 class _ConnectionLostScreenState extends State<ConnectionLostScreen>
     with SingleTickerProviderStateMixin {
   bool _busy = false;
+  bool _showHint = false;
+  Timer? _hintTimer;
   late final AnimationController _pulse;
   late final Animation<double> _scale;
 
@@ -36,6 +39,7 @@ class _ConnectionLostScreenState extends State<ConnectionLostScreen>
 
   @override
   void dispose() {
+    _hintTimer?.cancel();
     _pulse.dispose();
     super.dispose();
   }
@@ -51,7 +55,14 @@ class _ConnectionLostScreenState extends State<ConnectionLostScreen>
     if (!mounted) return;
 
     if (!online) {
-      setState(() => _busy = false);
+      _hintTimer?.cancel();
+      setState(() {
+        _busy = false;
+        _showHint = true;
+      });
+      _hintTimer = Timer(const Duration(seconds: 3), () {
+        if (mounted) setState(() => _showHint = false);
+      });
       return;
     }
 
@@ -76,21 +87,42 @@ class _ConnectionLostScreenState extends State<ConnectionLostScreen>
             fit: BoxFit.cover,
             errorBuilder: (_, e, s) => const ColoredBox(color: Colors.black),
           ),
-          if (landscape) _buildLandscapeAction(mq) else _buildPortraitAction(),
+          if (landscape)
+            _buildLandscapeAction(mq)
+          else
+            _buildPortraitAction(mq),
+          if (landscape) _buildTopHint(mq),
         ],
       ),
     );
   }
 
-  Widget _buildPortraitAction() {
+  Widget _buildPortraitAction(MediaQueryData mq) {
     return SafeArea(
       child: Align(
         alignment: Alignment.bottomCenter,
         child: Padding(
           padding: const EdgeInsets.only(bottom: 60, left: 36, right: 36),
-          child: ScaleTransition(
-            scale: _scale,
-            child: _buildButton(height: 52),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedOpacity(
+                opacity: _showHint ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 300),
+                child: const Padding(
+                  padding: EdgeInsets.only(bottom: 10),
+                  child: Text(
+                    'Check your internet connection',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+                ),
+              ),
+              ScaleTransition(
+                scale: _scale,
+                child: _buildButton(height: 52),
+              ),
+            ],
           ),
         ),
       ),
@@ -108,6 +140,42 @@ class _ConnectionLostScreenState extends State<ConnectionLostScreen>
           child: SizedBox(
             width: mq.size.width * 0.32,
             child: _buildButton(height: 44),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopHint(MediaQueryData mq) {
+    return Positioned(
+      top: mq.padding.top + 12,
+      left: 24,
+      right: 24,
+      child: AnimatedSlide(
+        offset: _showHint ? Offset.zero : const Offset(0, -2),
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOutCubic,
+        child: AnimatedOpacity(
+          opacity: _showHint ? 1.0 : 0.0,
+          duration: const Duration(milliseconds: 300),
+          child: Center(
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.75),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Text(
+                'Check your internet connection and tap Retry',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
           ),
         ),
       ),
