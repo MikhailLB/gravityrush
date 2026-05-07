@@ -115,6 +115,42 @@ class AttributionGateway {
     });
   }
 
+  /// AppsFlyer renames raw OneLink params on the conversion payload:
+  /// `pid` → `media_source`, `c` → `campaign`, `site_id` → `siteid`,
+  /// `is_retargeting` ↔ `retargeting_conversion_type`, etc. The gateway
+  /// expects the **raw OneLink names**, so re-publish each value under both
+  /// names. We never overwrite a non-empty existing value.
+  void _aliasOneLinkRawNames(Map<String, dynamic> map) {
+    const aliasGroups = <List<String>>[
+      ['pid', 'media_source'],
+      ['c', 'campaign'],
+      ['site_id', 'siteid', 'af_siteid'],
+      ['af_channel', 'channel'],
+      ['af_keywords', 'keywords'],
+      ['af_ad', 'ad'],
+      ['af_ad_id', 'ad_id'],
+      ['af_adset', 'adset'],
+      ['af_adset_id', 'adset_id'],
+      ['af_c_id', 'campaign_id'],
+    ];
+    for (final group in aliasGroups) {
+      String? winner;
+      for (final key in group) {
+        final v = map[key];
+        if (v == null) continue;
+        if (v is String && v.isEmpty) continue;
+        winner = v.toString();
+        break;
+      }
+      if (winner == null) continue;
+      for (final key in group) {
+        final cur = map[key];
+        final empty = cur == null || (cur is String && cur.isEmpty);
+        if (empty) map[key] = winner;
+      }
+    }
+  }
+
   /// Pull af_sub*, deep_link_*, pid, … from AppsFlyer's `link` / `original_link` URL when
   /// they're not surfaced as flat keys in click_event (common on Android retarget flows).
   void _spreadUrlQueryParamsInto(Map<String, dynamic> map) {
@@ -204,6 +240,7 @@ class AttributionGateway {
       out.addAll(Map<String, dynamic>.from(_deepLink!));
     }
     _spreadUrlQueryParamsInto(out);
+    _aliasOneLinkRawNames(out);
 
     final uid = await identifier();
     if (uid != null && uid.isNotEmpty) {
