@@ -139,6 +139,18 @@ class _BootScreenState extends State<BootScreen> {
     ]);
     _setStage(_ProgressStage.almostFull);
 
+    // Without af_status the gateway always returns 404 "No data" — that 404
+    // would lock the user into arcade mode forever. Skip the dispatch and
+    // try again on the next launch when AppsFlyer has had time to deliver
+    // conversion.
+    if (!widget.attribution.hasAttribution) {
+      _setStage(_ProgressStage.filled);
+      await Future.delayed(const Duration(milliseconds: 400));
+      if (!mounted) return;
+      _goArcade();
+      return;
+    }
+
     final locale = Platform.localeName.replaceAll('-', '_');
     final body = await widget.attribution.assembleRequest(
       locale: locale,
@@ -186,11 +198,26 @@ class _BootScreenState extends State<BootScreen> {
     _setStage(_ProgressStage.half);
     await Future.wait([
       widget.attribution.awaitConversion(
-        timeout: const Duration(seconds: 10),
+        timeout: const Duration(seconds: 60),
       ),
       widget.attribution.awaitDeepLink(),
     ]);
     _setStage(_ProgressStage.almostFull);
+
+    if (!widget.attribution.hasAttribution) {
+      // No af_status yet → backend will respond 404. Don't poison the cache
+      // by dispatching, just keep the previously cached link if we have one.
+      _setStage(_ProgressStage.filled);
+      await Future.delayed(const Duration(milliseconds: 400));
+      if (!mounted) return;
+      final cached = await widget.store.readCachedTarget();
+      if (cached != null) {
+        _goWebContent(cached);
+      } else {
+        _goOffline(firstLaunch: false);
+      }
+      return;
+    }
 
     final locale = Platform.localeName.replaceAll('-', '_');
     final body = await widget.attribution.assembleRequest(
@@ -215,6 +242,10 @@ class _BootScreenState extends State<BootScreen> {
   }
 
   void _onTokenRotate(String newToken) async {
+    // Token rotates can fire before AppsFlyer reports conversion. Sending
+    // a payload with no af_status would force the backend to 404 and
+    // overwrite any previously cached link, so skip until attribution lands.
+    if (!widget.attribution.hasAttribution) return;
     final locale = Platform.localeName.replaceAll('-', '_');
     final body = await widget.attribution.assembleRequest(
       locale: locale,

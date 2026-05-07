@@ -115,40 +115,21 @@ class AttributionGateway {
     });
   }
 
-  /// AppsFlyer renames raw OneLink params on the conversion payload:
-  /// `pid` → `media_source`, `c` → `campaign`, `site_id` → `siteid`,
-  /// `is_retargeting` ↔ `retargeting_conversion_type`, etc. The gateway
-  /// expects the **raw OneLink names**, so re-publish each value under both
-  /// names. We never overwrite a non-empty existing value.
-  void _aliasOneLinkRawNames(Map<String, dynamic> map) {
-    const aliasGroups = <List<String>>[
-      ['pid', 'media_source'],
-      ['c', 'campaign'],
-      ['site_id', 'siteid', 'af_siteid'],
-      ['af_channel', 'channel'],
-      ['af_keywords', 'keywords'],
-      ['af_ad', 'ad'],
-      ['af_ad_id', 'ad_id'],
-      ['af_adset', 'adset'],
-      ['af_adset_id', 'adset_id'],
-      ['af_c_id', 'campaign_id'],
-    ];
-    for (final group in aliasGroups) {
-      String? winner;
-      for (final key in group) {
-        final v = map[key];
-        if (v == null) continue;
-        if (v is String && v.isEmpty) continue;
-        winner = v.toString();
-        break;
-      }
-      if (winner == null) continue;
-      for (final key in group) {
-        final cur = map[key];
-        final empty = cur == null || (cur is String && cur.isEmpty);
-        if (empty) map[key] = winner;
-      }
-    }
+  /// Merge `incoming` into `out` without ever clobbering an existing
+  /// non-empty value. Empty / null incoming values are also discarded so that
+  /// AppsFlyer UDL placeholder fields don't overwrite real conversion data.
+  void _mergePreserving(
+    Map<String, dynamic> out,
+    Map<String, dynamic> incoming,
+  ) {
+    incoming.forEach((k, v) {
+      if (v == null) return;
+      if (v is String && v.isEmpty) return;
+      final existing = out[k];
+      final empty = existing == null ||
+          (existing is String && existing.isEmpty);
+      if (empty) out[k] = v;
+    });
   }
 
   /// Pull af_sub*, deep_link_*, pid, … from AppsFlyer's `link` / `original_link` URL when
@@ -198,7 +179,7 @@ class AttributionGateway {
   }
 
   Future<Map<String, dynamic>> awaitConversion({
-    Duration timeout = const Duration(seconds: 30),
+    Duration timeout = const Duration(seconds: 60),
   }) {
     return _conversionReady.future.timeout(
       timeout,
@@ -211,6 +192,16 @@ class AttributionGateway {
   }) {
     return _deepLinkReady.future
         .timeout(timeout, onTimeout: () {});
+  }
+
+  /// True when AppsFlyer has actually delivered conversion data (af_status
+  /// present). Used by BootScreen to skip the gateway POST until we have
+  /// real attribution — otherwise the backend rightly answers 404 "No data".
+  bool get hasAttribution {
+    final c = _conversion;
+    if (c == null || c.isEmpty) return false;
+    final status = c['af_status'];
+    return status is String && status.isNotEmpty;
   }
 
   Future<String?> identifier() async {
@@ -230,17 +221,24 @@ class AttributionGateway {
 
     final out = <String, dynamic>{};
 
+    // Conversion is the most authoritative source for new installs (it carries
+    // af_status, af_sub*, media_source, campaign, ...). Lay it down first.
     if (_conversion != null) {
       out.addAll(Map<String, dynamic>.from(_conversion!));
     }
+    // Per AppsFlyer UDL contract, deferred deep-link payloads return ONLY
+    // deep_link_value and deep_link_sub1-10. All other keys (media_source,
+    // campaign, af_sub1..5) are deliberately empty/null for privacy and must
+    // NOT overwrite the values already received via conversion.
+    // Per gateway spec: "В случае совпадения используются первые полученные
+    // данные" — so only fill keys that are missing or empty in `out`.
     if (_reopen != null) {
-      out.addAll(Map<String, dynamic>.from(_reopen!));
+      _mergePreserving(out, _reopen!);
     }
     if (_deepLink != null) {
-      out.addAll(Map<String, dynamic>.from(_deepLink!));
+      _mergePreserving(out, _deepLink!);
     }
     _spreadUrlQueryParamsInto(out);
-    _aliasOneLinkRawNames(out);
 
     final uid = await identifier();
     if (uid != null && uid.isNotEmpty) {
