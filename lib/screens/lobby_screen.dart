@@ -145,7 +145,7 @@ class _LobbyScreenState extends State<LobbyScreen>
             Image.asset(MediaLib.logo, width: 140, height: 140),
             const SizedBox(height: 10),
             const Text(
-              'GRAVITY RUSH',
+              'BOUNCE BALL 2',
               style: TextStyle(
                 color: Color(0xFFCC66FF),
                 fontSize: 32,
