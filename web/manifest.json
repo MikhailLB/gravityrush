@@ -1,11 +1,11 @@
 {
-    "name": "gravity_rush",
-    "short_name": "gravity_rush",
+    "name": "Bounce Ball 2",
+    "short_name": "Bounce Ball 2",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#08001A",
+    "theme_color": "#CC66FF",
+    "description": "Bounce Ball 2 — neon plinko ball game with risk and reward.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
