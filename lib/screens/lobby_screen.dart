@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../models/ball_skin.dart';
 import '../utils/media_lib.dart';
+import 'web_view_screen.dart';
 
 class LobbyScreen extends StatefulWidget {
   final void Function(BallSkin skin) onPlay;
@@ -189,9 +189,13 @@ class _LobbyScreenState extends State<LobbyScreen>
               child: _buildPlayButton(activeSkin),
             ),
             const SizedBox(height: 24),
-            _linkButton(
-              'Privacy Policy',
-              'https://github.com/MikhailLB/privacy-policy-bounce-ball2/blob/main/PRIVACY%20POLICY.md',
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _linkButton('Privacy Policy', 'https://bounceball2.com/privacy-policy.html'),
+                const SizedBox(width: 20),
+                _linkButton('Support', 'https://bounceball2.com/support.html'),
+              ],
             ),
             const SizedBox(height: 20),
           ],
@@ -202,7 +206,12 @@ class _LobbyScreenState extends State<LobbyScreen>
 
   Widget _linkButton(String label, String url) {
     return GestureDetector(
-      onTap: () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => WebViewScreen(title: label, url: url),
+        ),
+      ),
       child: Text(
         label,
         style: TextStyle(
