@@ -9,12 +9,12 @@ class GameAssets {
     game.images.prefix = 'assets/';
 
     final loaded = await Future.wait([
-      game.loadSprite('game_assets/trap_marker.webp'),
-      game.loadSprite('game_assets/orb_aqua.webp'),
-      game.loadSprite('game_assets/orb_verdant.webp'),
-      game.loadSprite('game_assets/orb_solar.webp'),
-      game.loadSprite('game_assets/orb_blaze.webp'),
-      game.loadSprite('game_assets/orb_void.webp'),
+      game.loadSprite('game_assets/circle_with_skull_inside.webp'),
+      game.loadSprite('game_assets/blue_sphere_asset.webp'),
+      game.loadSprite('game_assets/green_sphere_asset.webp'),
+      game.loadSprite('game_assets/yellow_sphere_asset.webp'),
+      game.loadSprite('game_assets/red_sphere_asset.webp'),
+      game.loadSprite('game_assets/purple_sphere_asset.webp'),
     ]);
 
     circleSkull = loaded[0];
