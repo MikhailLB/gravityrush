@@ -1,4 +1,4 @@
-// !$*UTF8*$!
+﻿// !$*UTF8*$!
 {
 	archiveVersion = 1;
 	classes = {
@@ -208,14 +208,12 @@
 			buildRules = (
 			);
 			dependencies = (
+				BB20000100000000000000EA /* PBXTargetDependency */,
 			);
 			name = Runner;
 			productName = Runner;
 			productReference = 97C146EE1CF9000F007C117D /* Runner.app */;
 			productType = "com.apple.product-type.application";
-			 dependencies = (
-				 BB20000100000000000000EA /* PBXTargetDependency */,
-			);
 		};
 		BB200001000000000000005A /* NotificationService */ = {
 			isa = PBXNativeTarget;
