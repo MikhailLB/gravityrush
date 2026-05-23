@@ -1,0 +1,4 @@
+# Treat project.pbxproj as binary to prevent Git on Windows from adding
+# UTF-8 BOM or converting line endings — both break CocoaPods pod install.
+# See gray_flow_guide.md "pod install fails — project.pbxproj corruption"
+*.pbxproj binary
