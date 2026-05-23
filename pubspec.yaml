@@ -6,55 +6,57 @@ version: 1.0.0+2
 environment:
   sdk: ^3.11.4
 
-# Dependencies specify other packages that your package needs in order to work.
-# To automatically upgrade your package dependencies to the latest versions
-# consider running `flutter pub upgrade --major-versions`. Alternatively,
-# dependencies can be manually updated by changing the version numbers below to
-# the latest version available on pub.dev. To see which dependencies have newer
-# versions available, run `flutter pub outdated`.
 dependencies:
   flutter:
     sdk: flutter
 
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   flame: ^1.37.0
   video_player: ^2.11.1
   shared_preferences: ^2.5.5
   url_launcher: ^6.3.1
+
+  # ── Gray gate layer ───────────────────────────────────────
+  appsflyer_sdk: ^6.15.0
+  app_tracking_transparency: ^2.0.3
+  firebase_core: ^3.12.0
+  firebase_messaging: ^15.1.0
+  firebase_app_check: ^0.3.1+5
+  flutter_local_notifications: ^17.0.0
+  connectivity_plus: ^6.1.2
+  http: ^1.2.1
+  device_info_plus: ^9.1.0
+  flutter_secure_storage: ^9.2.1
+  package_info_plus: ^8.0.0
   webview_flutter: ^4.10.0
+  webview_flutter_android: ^4.3.0
+  webview_flutter_wkwebview: ^3.18.0
+  file_picker: ^8.1.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
-  # The "flutter_lints" package below contains a set of recommended lints to
-  # encourage good coding practices. The lint set provided by the package is
-  # activated in the `analysis_options.yaml` file located at the root of your
-  # package. See that file for information about deactivating specific lint
-  # rules and activating additional ones.
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
 
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/logo_options/logo.jpg"
+  image_path: "assets/logo.jpg"
   adaptive_icon_background: "#000000"
-  adaptive_icon_foreground: "assets/logo_options/logo.jpg"
+  adaptive_icon_foreground: "assets/logo.jpg"
+  remove_alpha_ios: true
 
-# For information on the generic Dart part of this file, see the
-# following page: https://dart.dev/tools/pub/pubspec
-
-# The following section is specific to Flutter packages.
 flutter:
-
-  # The following line ensures that the Material Icons font is
-  # included with your application, so that you can use the icons in
-  # the material Icons class.
   uses-material-design: true
 
+  # Disable Swift Package Manager — use CocoaPods to prevent SPM
+  # from modifying project.pbxproj after pod install in CI.
+  config:
+    enable-swift-package-manager: false
+
   assets:
-    - assets/game_assets/
-    - assets/logo_options/
+    - assets/logo.jpg
+    - assets/Loading/
+    - assets/Notifications/
+    - assets/NoWifi/
