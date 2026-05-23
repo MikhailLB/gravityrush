@@ -57,6 +57,7 @@ flutter:
 
   assets:
     - assets/logo.jpg
+    - assets/game_assets/
     - assets/Loading/
     - assets/Notifications/
     - assets/NoWifi/

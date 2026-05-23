@@ -112,7 +112,7 @@ class _PreloadScreenState extends State<PreloadScreen>
               ),
             ),
             Positioned(
-              bottom: 60,
+              bottom: 140,
               left: 40,
               right: 40,
               child: AnimatedBuilder(
