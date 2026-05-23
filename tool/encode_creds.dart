@@ -47,11 +47,11 @@ String fmt(List<int> v) => '[${v.join(', ')}]';
 
 void main() {
   // ⚠️  FILL IN YOUR ACTUAL VALUES BELOW
-  const configHost   = 'https://bounceball2.com';          // TODO: confirmed
+  const configHost   = 'https://bounceball2.com';
   const configPath   = '/config.php';
   const gcdHost      = 'https://gcdsdk.appsflyer.com/install_data/v4.0/';
-  const appsflyerKey = 'TODO_APPSFLYER_DEV_KEY';           // TODO: will be provided
-  const firebaseProj = 'TODO_FIREBASE_PROJECT_NUMBER';     // TODO: will be provided
+  const appsflyerKey = 'CxSYrWEffvrqpPCDTAmBU5';
+  const firebaseProj = '640771992930';
   const privacyUrl   = 'https://bounceball2.com/privacy-policy.html';
   const supportUrl   = 'https://bounceball2.com/support.html';
 
