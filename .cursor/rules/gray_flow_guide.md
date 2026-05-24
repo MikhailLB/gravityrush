@@ -1001,6 +1001,56 @@ The `expires` field is a Unix timestamp. `DataStore.isUrlExpired()` checks it т
 
 ---
 
+### `pod install` fails — `sandbox is not in sync with the Podfile.lock` (CI build error)
+
+**Symptom:** CI (Codemagic / Xcode Cloud) logs show:
+```
+Running pod install...    844ms
+Error (Xcode): The sandbox is not in sync with the Podfile.lock.
+Run 'pod install' or update your CocoaPods installation.
+```
+
+**Root cause:** Flutter's internal `pod install` (triggered by `flutter build ipa`) uses the CocoaPods pod cache. When the cache is warm, pod install completes in under 1 second — but `Pods/Manifest.lock` is not fully regenerated. Xcode's "Check Pods Manifest.lock" build phase then finds a mismatch between `Manifest.lock` and `Podfile.lock` and aborts.
+
+**Fix — add `disable_input_output_paths` to Podfile:**
+
+```ruby
+install! 'cocoapods', :disable_input_output_paths => true
+```
+
+This tells CocoaPods to skip input/output path tracking, which disables the Xcode sandbox check entirely. Add this line near the top of `ios/Podfile`, after `ENV['COCOAPODS_DISABLE_STATS']`:
+
+```ruby
+platform :ios, '13.0'
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+install! 'cocoapods', :disable_input_output_paths => true  # ← add this
+```
+
+**Alternative fix:** Run `pod install` as a separate CI step BEFORE `flutter build ipa --no-pub`. The `--no-pub` flag tells Flutter to skip its own pub get and pod install, so the pods you installed in the previous step are used. This ensures `Manifest.lock` is always in sync.
+
+---
+
+### Local Xcode error: `Signing for "Runner" requires a development team`
+
+**Symptom:** Opening the project in local Xcode shows:
+```
+Signing for "Runner" requires a development team.
+Select a development team in the Signing & Capabilities editor.
+```
+
+**Root cause:** The project was opened as `Runner.xcodeproj` directly, instead of `Runner.xcworkspace`. When opened as `.xcodeproj`, CocoaPods integration is missing and Xcode cannot resolve the signing configuration.
+
+**Fix:**
+1. Always open `Runner.xcworkspace` (not `Runner.xcodeproj`) after running `pod install`.
+2. If `DEVELOPMENT_TEAM` is missing from `project.pbxproj`, add it to all three Runner build configurations (Debug, Release, Profile):
+```
+DEVELOPMENT_TEAM = YOUR_TEAM_ID;
+```
+
+**Note:** `DEVELOPMENT_TEAM` is already set in `project.pbxproj` for all iOS Flutter projects in this portfolio (`NXTLARTUHG`). The error always means the workspace file is not being used.
+
+---
+
 ## Ideal project.pbxproj Structure for NSE Integration
 
 This is the **canonical, verified-working** structure extracted from LavaPeakRun `ios-gray-part`. Replace `NSE_*` UUID placeholders with your own unique 24-char hex strings. All edits must be saved **without UTF-8 BOM** (see Windows editing rules below).
