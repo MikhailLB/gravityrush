@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'root_widget.dart';
+
+import 'app.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const BallDropApp());
+  runApp(const ElementraApp());
 }

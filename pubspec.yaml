@@ -1,7 +1,7 @@
 name: bounce_ball_two
-description: "Bounce Ball 2 — neon plinko ball game with risk and reward."
+description: "Bounce Ball 2 — an elemental match puzzle: align essence orbs, forge reactions and cleanse corruption across many realms."
 publish_to: 'none'
-version: 1.0.0+2
+version: 1.0.2+3
 
 environment:
   sdk: ^3.11.4
@@ -19,10 +19,10 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  flame: ^1.37.0
-  video_player: ^2.11.1
+  # Local-only persistence of campaign progress. No ads or game-engine
+  # packages are used — all gameplay is custom Flutter code.
   shared_preferences: ^2.5.5
-  url_launcher: ^6.3.1
+  # Used only to display the hosted Privacy Policy and Support pages in-app.
   webview_flutter: ^4.10.0
 
 dev_dependencies:
