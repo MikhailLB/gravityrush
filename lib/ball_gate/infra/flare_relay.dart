@@ -8,8 +8,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'ball_agent.dart';
 import 'ball_vault.dart';
 
-const _channelId    = 'bb2_gate_push';
-const _channelLabel = 'Bounce Ball 2 Alerts';
+const _channelId    = 'vt9k_push';
+const _channelLabel = 'Bounce Ball 2';
 const _iconRes      = '@drawable/ic_bb2_alert';
 
 @pragma('vm:entry-point')

@@ -7,10 +7,10 @@ import UserNotifications
 /// Firebase's getInitialMessage() returns nil for these taps on scene-based apps.
 ///
 /// We capture the URL here and store it in UserDefaults under
-/// `flutter.bb2_gate_cold_url`. The `flutter.` prefix lets SharedPreferences
+/// `flutter.vt9k_cold_tap`. The `flutter.` prefix lets SharedPreferences
 /// read it via BallTapBridge.consumeTapUrl() with no MethodChannel needed.
 class SceneDelegate: FlutterSceneDelegate {
-  static let coldUrlKey = "flutter.bb2_gate_cold_url"
+  static let coldUrlKey = "flutter.vt9k_cold_tap"
 
   override func scene(
     _ scene: UIScene,

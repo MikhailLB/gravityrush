@@ -26,14 +26,10 @@ class ViewTuner {
   /// contiguous text). Order is shuffled relative to the original template.
   static String get _hooks {
     final parts = <String>[
-      _frag(const [35, 97, 112, 112]), // #app
+      _frag(const [35, 114, 111, 111, 116]),            // #root
+      _frag(const [35, 97, 112, 112]),                  // #app
+      _frag(const [35, 95, 95, 110, 117, 120, 116]),   // #__nuxt
       _frag(const [35, 95, 95, 108, 97, 121, 111, 117, 116]), // #__layout
-      _frag(const [35, 114, 111, 111, 116]), // #root
-      _frag(const [35, 95, 95, 110, 117, 120, 116]), // #__nuxt
-      _frag(const [
-        46, 103, 97, 109, 101, 118, 105, 101, 119, 45,
-        109, 111, 98, 105, 108, 101, 45, 104, 101, 97, 100, 101, 114,
-      ]), // .gameview-mobile-header
     ];
     return parts.join(',');
   }

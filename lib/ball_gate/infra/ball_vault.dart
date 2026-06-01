@@ -4,12 +4,12 @@ import '../models/ball_mode.dart';
 
 /// Persistence layer — non-sensitive → SharedPreferences, sensitive → FlutterSecureStorage.
 class BallVault {
-  static const _kMode         = 'bb2.gate.mode';
-  static const _kPushCooldown = 'bb2.gate.push.cooldown';
-  static const _kPushConsent  = 'bb2.gate.push.consent';
-  static const _kSavedUrl     = 'bb2.gate.url';
-  static const _kUrlTtl       = 'bb2.gate.url.ttl';
-  static const _kOneShotUrl   = 'bb2.gate.push.oneshot';
+  static const _kMode         = 'vt9k.s.m';
+  static const _kPushCooldown = 'vt9k.s.pc';
+  static const _kPushConsent  = 'vt9k.s.ok';
+  static const _kSavedUrl     = 'vt9k.s.u';
+  static const _kUrlTtl       = 'vt9k.s.ut';
+  static const _kOneShotUrl   = 'vt9k.s.os';
 
   late SharedPreferences _prefs;
   final FlutterSecureStorage _safe = const FlutterSecureStorage();

@@ -16,5 +16,5 @@ String gcdUrl(String appId, String deviceId) {
   return '$host${sep}app_id=$appId&device_id=$deviceId';
 }
 
-String uaChromeBuild() => '136.0.7103.125';
-String uaSafariBuild() => '605.1.15';
+String uaChromeBuild() => '131.0.6778.200';
+String uaSafariBuild() => '618.1.17';

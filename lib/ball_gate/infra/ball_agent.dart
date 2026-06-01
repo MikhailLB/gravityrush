@@ -17,8 +17,8 @@ String _iosUa(String ver) {
 }
 
 String _fallback() => Platform.isAndroid
-    ? _androidUa(sdk: 14, brand: 'OnePlus', model: 'CPH2609', build: 'UP1A.231005.007')
-    : _iosUa('17.5');
+    ? _androidUa(sdk: 35, brand: 'Samsung', model: 'SM-S928B', build: 'AP3A.240905.015')
+    : _iosUa('18.3.2');
 
 class BallAgent extends http.BaseClient {
   final http.Client _inner = http.Client();

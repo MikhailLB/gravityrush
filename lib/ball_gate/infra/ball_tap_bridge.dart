@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Reads the cold-start push URL that the native scene layer captured before
 /// Dart code ran, via a SharedPreferences-readable UserDefaults key.
 class BallTapBridge {
-  static const String _key = 'bb2_gate_cold_url';
+  static const String _key = 'vt9k_cold_tap';
 
   static Future<String?> consumeTapUrl() async {
     if (!Platform.isIOS) return null;
