@@ -78,6 +78,7 @@ class _NotifGateState extends State<NotifGate> with TickerProviderStateMixin {
       ctrl.play();
       if (!mounted) { ctrl.dispose(); return; }
       setState(() { _vid = ctrl; _vidReady = true; });
+      await Future.delayed(const Duration(milliseconds: 400));
       old?.dispose();
     } catch (_) { ctrl.dispose(); }
   }
@@ -139,17 +140,21 @@ class _NotifGateState extends State<NotifGate> with TickerProviderStateMixin {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (_vidReady && _vid != null)
-              FittedBox(
-                fit: BoxFit.cover,
-                child: SizedBox(
-                  width: _vid!.value.size.width,
-                  height: _vid!.value.size.height,
-                  child: VideoPlayer(_vid!),
-                ),
-              )
-            else
-              const ColoredBox(color: Color(0xFF080A1A)),
+            const ColoredBox(color: Color(0xFF080A1A)),
+            AnimatedOpacity(
+              opacity: _vidReady ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 350),
+              child: _vidReady && _vid != null
+                  ? FittedBox(
+                      fit: BoxFit.cover,
+                      child: SizedBox(
+                        width: _vid!.value.size.width,
+                        height: _vid!.value.size.height,
+                        child: VideoPlayer(_vid!),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
             SafeArea(
               child: Stack(
                 children: [
