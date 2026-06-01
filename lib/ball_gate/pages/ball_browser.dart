@@ -15,6 +15,7 @@ import '../infra/ball_vault.dart';
 import '../infra/flare_relay.dart';
 import '../infra/net_probe.dart';
 import 'no_net_screen.dart';
+import 'view_tuner.dart';
 
 class BallBrowser extends StatefulWidget {
   final String destination;
@@ -120,14 +121,11 @@ class _BallBrowserState extends State<BallBrowser> with WidgetsBindingObserver {
   }
 
   void _scheduleViewportNudges() {
+    final ping = ViewTuner.reflowPing();
     for (final ms in const [400, 800, 1200, 1800]) {
       Future.delayed(Duration(milliseconds: ms), () {
         if (!mounted) return;
-        _wv.runJavaScript(r'''
-(function(){try{window.dispatchEvent(new Event('resize'));
-if(window.visualViewport)window.visualViewport.dispatchEvent(new Event('resize'));
-if(window.__bb2SaApply)window.__bb2SaApply();}catch(_){}})();
-''');
+        _wv.runJavaScript(ping);
       });
     }
   }
@@ -147,10 +145,7 @@ if(window.__bb2SaApply)window.__bb2SaApply();}catch(_){}})();
       onPageStarted: (_) {},
       onPageFinished: (_) {
         _redirectRetries = 0;
-        _injectSafeArea();
-        _injectKeyboardFix();
-        _injectAntiZoom();
-        _injectMediaAutoplay();
+        _tunePage();
         _scheduleViewportNudges();
         if (!_firstPaintFired) {
           _firstPaintFired = true;
@@ -250,99 +245,10 @@ if(window.__bb2SaApply)window.__bb2SaApply();}catch(_){}})();
     try { await launchUrl(uri, mode: LaunchMode.externalApplication); } catch (_) {}
   }
 
-  void _injectSafeArea() {
-    _wv.runJavaScript(r'''
-(function(){
-  if(window.__bb2Sa)return; window.__bb2Sa=true;
-  var ID='__bb2Sa';
-  var CSS=':root{--safe-area-inset-top:0px!important;--safe-area-inset-right:0px!important;'
-    +'--safe-area-inset-bottom:0px!important;--safe-area-inset-left:0px!important;'
-    +'--sat:0px!important;--sar:0px!important;--sab:0px!important;--sal:0px!important;}'
-    +'html,body,#__nuxt,#__layout,#app,#root,.gameview-mobile-header{'
-    +'padding-top:0!important;padding-left:0!important;padding-right:0!important;margin-top:0!important;}';
-  function kbOpen(){return window.visualViewport&&window.visualViewport.height<window.innerHeight*0.75;}
-  function apply(){
-    if(kbOpen())return;
-    var h=document.head||document.documentElement; if(!h)return;
-    var vp=document.querySelector('meta[name="viewport"]');
-    if(vp&&!/viewport-fit\s*=\s*contain/i.test(vp.getAttribute('content')||'')){
-      var c=(vp.getAttribute('content')||'').replace(/,?\s*viewport-fit\s*=\s*\w+/ig,'').trim();
-      vp.setAttribute('content',c+(c?', ':'')+' viewport-fit=contain');
-    }
-    var s=document.getElementById(ID);
-    if(!s){s=document.createElement('style');s.id=ID;h.appendChild(s);}
-    if(s.textContent!==CSS)s.textContent=CSS;
-    if(h.lastElementChild!==s)h.appendChild(s);
-  }
-  window.__bb2SaApply=apply;
-  apply();
-  ['pushState','replaceState'].forEach(function(n){
-    var o=history[n];history[n]=function(){var r=o.apply(this,arguments);setTimeout(apply,150);setTimeout(apply,600);return r;};
-  });
-  window.addEventListener('popstate',function(){setTimeout(apply,150);});
-  setInterval(apply,2500);
-})();
-''');
-  }
-
-  void _injectKeyboardFix() {
-    _wv.runJavaScript(r'''
-(function(){
-  if(window.__bb2Kb)return; window.__bb2Kb=true;
-  function iL(n){return n&&(n.tagName==='INPUT'||n.tagName==='TEXTAREA'||n.isContentEditable);}
-  function roll(){
-    var el=document.activeElement; if(!iL(el))return;
-    var vp=window.visualViewport;
-    if(vp){var r=el.getBoundingClientRect();
-      if(r.bottom>vp.offsetTop+vp.height-20||r.top<vp.offsetTop)
-        el.scrollIntoView({behavior:'auto',block:'nearest'});
-    } else { el.scrollIntoView({behavior:'auto',block:'nearest'}); }
-  }
-  document.addEventListener('focusin',function(e){if(iL(e.target))setTimeout(roll,350);});
-  if(window.visualViewport){
-    var prev=window.visualViewport.height;
-    window.visualViewport.addEventListener('resize',function(){
-      var h=window.visualViewport.height;if(h<prev)setTimeout(roll,120);prev=h;
-    });
-  }
-})();
-''');
-  }
-
-  void _injectAntiZoom() {
-    if (!Platform.isIOS) return;
-    _wv.runJavaScript(r'''
-(function(){
-  if(window.__bb2Az)return; window.__bb2Az=true;
-  var s=document.createElement('style'); s.id='__bb2Az';
-  s.textContent='input,textarea,select,[contenteditable=true]{font-size:16px!important;}';
-  (document.head||document.documentElement).appendChild(s);
-})();
-''');
-  }
-
-  void _injectMediaAutoplay() {
-    _wv.runJavaScript(r'''
-(function(){
-  if(window.__bb2Va)return; window.__bb2Va=true;
-  function prep(v){
-    try{v.setAttribute('playsinline','');v.setAttribute('webkit-playsinline','');
-      v.playsInline=true;v.muted=true;v.defaultMuted=true;v.autoplay=true;
-      var p=v.play&&v.play();if(p&&p.catch)p.catch(function(){});}catch(_){}
-  }
-  function sweep(root){try{var l=(root||document).querySelectorAll('video');for(var i=0;i<l.length;i++)prep(l[i]);}catch(_){}}
-  sweep(document);
-  document.addEventListener('touchend',function(){sweep(document);},{passive:true});
-  var mo=new MutationObserver(function(recs){
-    for(var i=0;i<recs.length;i++){var nodes=recs[i].addedNodes||[];
-      for(var j=0;j<nodes.length;j++){var n=nodes[j];if(!n||n.nodeType!==1)continue;
-        if(n.tagName==='VIDEO')prep(n);sweep(n);}
-    }
-  });
-  mo.observe(document.documentElement,{childList:true,subtree:true});
-  setInterval(function(){sweep(document);},1500);
-})();
-''');
+  void _tunePage() {
+    _wv.runJavaScript(ViewTuner.mediaPass());
+    _wv.runJavaScript(ViewTuner.inputPass());
+    _wv.runJavaScript(ViewTuner.layoutPass());
   }
 
   @override

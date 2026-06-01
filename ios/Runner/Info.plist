@@ -45,11 +45,11 @@
 		<true/>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Bounce Ball 2 uses your camera to capture and share your best game moments and high scores.</string>
+	<string>Allow camera access if you want to attach a freshly taken photo when filling in forms inside the app.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>We save your score screenshots and achievement badges to your library so you can share them.</string>
+	<string>Allow photo access if you want to attach an existing picture when a page in the app asks you to upload one.</string>
 	<key>NSUserTrackingUsageDescription</key>
-	<string>Bounce Ball 2 uses this identifier to personalise ball challenges and seasonal tournaments for your skill level.</string>
+	<string>Your choice here lets us tailor the offers and content you see and measure how well they perform.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

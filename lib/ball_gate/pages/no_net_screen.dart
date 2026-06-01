@@ -60,8 +60,8 @@ class _NoNetScreenState extends State<NoNetScreen>
     final landscape = c.size.width > c.size.height;
     final topInset = c.viewPadding.top;
     final bgAsset = landscape
-        ? 'assets/NoWifi/16x9_NoWifi_screen.webp'
-        : 'assets/NoWifi/9x16_NoWifi_screen.webp';
+        ? 'assets/vt9k_off/veil_wide.webp'
+        : 'assets/vt9k_off/veil_tall.webp';
     final btnW = landscape
         ? (c.size.width * 0.24).clamp(200.0, 340.0)
         : (c.size.width * 0.52).clamp(180.0, 300.0);

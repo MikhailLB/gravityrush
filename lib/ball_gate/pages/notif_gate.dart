@@ -9,7 +9,7 @@ import '../infra/net_probe.dart';
 import 'ball_browser.dart';
 
 /// Push permission screen for Bounce Ball 2.
-/// Background: MP4 video (Notifications folder) — neon/bounce aesthetic.
+/// Background: looping MP4 clip — neon/bounce aesthetic.
 /// Buttons: neon cyan gradient matching the game theme.
 class NotifGate extends StatefulWidget {
   final BallVault vault;
@@ -67,8 +67,8 @@ class _NotifGateState extends State<NotifGate> with TickerProviderStateMixin {
 
   Future<void> _loadVideo(Orientation o) async {
     final path = o == Orientation.landscape
-        ? 'assets/Notifications/16x9_Notifications_Screen.mp4'
-        : 'assets/Notifications/9x16_Notifications_Screen.mp4';
+        ? 'assets/vt9k_note/bell_wide.mp4'
+        : 'assets/vt9k_note/bell_tall.mp4';
     final old = _vid;
     final ctrl = VideoPlayerController.asset(path);
     try {

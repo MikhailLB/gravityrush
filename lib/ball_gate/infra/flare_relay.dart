@@ -78,10 +78,7 @@ class FlareRelay {
       }
       _token = await _fcm!.getToken();
       _ready = true;
-      debugPrint('[BB2.FR] bootstrap OK token=${_token == null ? 'null' : 'present'}');
-      if (kDebugMode && _token != null) debugPrint('[BB2.FR] FCM TOKEN: $_token');
-    } catch (err) {
-      debugPrint('[BB2.FR] bootstrap error: $err');
+    } catch (_) {
     } finally {
       if (!_coldGate.isCompleted) _coldGate.complete();
     }
@@ -95,7 +92,6 @@ class FlareRelay {
         final url = _extractUrl(msg);
         if (url != null) {
           await _vault.stashOneShotUrl(url);
-          debugPrint('[BB2.FR] cold-start url stashed');
         }
       }
     } catch (_) {}
@@ -225,8 +221,7 @@ class FlareRelay {
       }
       await _vault.writePushConsent(ok);
       return ok;
-    } catch (err) {
-      debugPrint('[BB2.FR] askConsent error: $err');
+    } catch (_) {
       return false;
     }
   }
@@ -288,10 +283,8 @@ class FlareRelay {
   void _dispatchUrl(String url, {required String from}) {
     final cb = onPushUrl;
     if (cb != null) {
-      debugPrint('[BB2.FR] dispatch ($from) → live browser');
       cb(url);
     } else {
-      debugPrint('[BB2.FR] dispatch ($from) → stash');
       _vault.stashOneShotUrl(url);
     }
   }

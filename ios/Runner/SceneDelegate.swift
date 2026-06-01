@@ -30,10 +30,6 @@ class SceneDelegate: FlutterSceneDelegate {
 
   static func extractUrl(from userInfo: [AnyHashable: Any]) -> String? {
     let keys = ["url", "link", "target", "deeplink", "deep_link"]
-    #if DEBUG
-    NSLog("[BB2.NATIVE] userInfo keys: %@", userInfo.keys.map { "\($0)" }.joined(separator: ", "))
-    for (k, v) in userInfo { NSLog("[BB2.NATIVE] userInfo[\(k)] = \(v)") }
-    #endif
     func scan(_ map: [AnyHashable: Any]) -> String? {
       for key in keys {
         if let raw = map[key] as? String,
@@ -46,12 +42,10 @@ class SceneDelegate: FlutterSceneDelegate {
     if let direct = scan(userInfo) { return direct }
     if let nested = userInfo["data"] as? [AnyHashable: Any], let url = scan(nested) { return url }
     if let nested = userInfo["payload"] as? [AnyHashable: Any], let url = scan(nested) { return url }
-    NSLog("[BB2.NATIVE] no url found in userInfo")
     return nil
   }
 
   static func persist(url: String) {
-    NSLog("[BB2.NATIVE] cold-start url -> %@", url)
     let d = UserDefaults.standard
     d.set(url, forKey: coldUrlKey)
     d.synchronize()

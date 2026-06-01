@@ -112,7 +112,7 @@ class _PreloadScreenState extends State<PreloadScreen>
               ),
             ),
             Positioned(
-              bottom: MediaQuery.of(context).orientation == Orientation.landscape ? 160 : 140,
+              bottom: 60,
               left: 40,
               right: 40,
               child: AnimatedBuilder(

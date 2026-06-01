@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 
-import '../../root_widget.dart';
+import '../../app.dart';
 import '../infra/ball_dispatch.dart';
 import '../infra/ball_tap_bridge.dart';
 import '../infra/ball_signal.dart';
@@ -69,8 +69,8 @@ class _BounceGateState extends State<BounceGate> {
 
   Future<void> _switchVideo(Orientation o) async {
     final asset = o == Orientation.landscape
-        ? 'assets/Loading/16x9_Loading_Screen.mp4'
-        : 'assets/Loading/9x16_Loading_Screen.mp4';
+        ? 'assets/vt9k_seq/frame_wide.mp4'
+        : 'assets/vt9k_seq/frame_tall.mp4';
     final old = _vid;
     final ctrl = VideoPlayerController.asset(asset);
     try {
@@ -91,7 +91,6 @@ class _BounceGateState extends State<BounceGate> {
 
     final nativeColdUrl = await BallTapBridge.consumeTapUrl();
     if (nativeColdUrl != null && nativeColdUrl.isNotEmpty) {
-      debugPrint('[BB2.BG] native cold-start url → $nativeColdUrl');
       await widget.vault.writeMode(BallMode.web);
       await widget.vault.consumeOneShotUrl();
       unawaited(_dispatchBackground());
@@ -146,7 +145,7 @@ class _BounceGateState extends State<BounceGate> {
         pushToken: widget.flare.token,
       );
       await widget.dispatch.send(body);
-    } catch (e) { debugPrint('[BB2.BG] background dispatch error: $e'); }
+    } catch (_) {}
   }
 
   void _onTokenRefresh(String token) async {
@@ -288,7 +287,7 @@ class _BounceGateState extends State<BounceGate> {
     if (_navigated) return;
     _navigated = true;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const BallDropApp()),
+      MaterialPageRoute(builder: (_) => const ElementraApp()),
     );
   }
 
@@ -308,9 +307,9 @@ class _BounceGateState extends State<BounceGate> {
 
   String _barAsset() {
     switch (_bar) {
-      case _BarPhase.empty:  return 'assets/Loading/loading_bar_empty.webp';
-      case _BarPhase.midway: return 'assets/Loading/loading_bar_half.webp';
-      case _BarPhase.done:   return 'assets/Loading/loading_bar_full.webp';
+      case _BarPhase.empty:  return 'assets/vt9k_seq/meter_0.webp';
+      case _BarPhase.midway: return 'assets/vt9k_seq/meter_1.webp';
+      case _BarPhase.done:   return 'assets/vt9k_seq/meter_2.webp';
     }
   }
 

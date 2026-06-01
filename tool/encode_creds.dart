@@ -2,43 +2,59 @@
 import 'dart:typed_data';
 
 /// ════════════════════════════════════════════════════════════
-/// BounceBall 2 (GravityRush) — credential encoder
+/// BounceBall 2 — credential encoder
 /// ════════════════════════════════════════════════════════════
 ///
 /// USAGE:
 ///   dart run tool/encode_creds.dart
 ///
-/// ⚠️  Always run with `dart run`, NEVER PowerShell foreach loops.
-/// PowerShell overflows 32-bit integers → wrong byte values.
-///
-/// The _seedBytes MUST match _seedBytes in lib/ball_vault/ball_cipher.dart.
+/// The masking scheme MUST stay byte-for-byte identical to
+/// lib/mask/byte_mask.dart (seed, stream length, digest, keystream,
+/// index fold). If you change one, change both.
 /// ════════════════════════════════════════════════════════════
 
 const _seedBytes = <int>[
-  0x62, 0x62, 0x61, 0x6C, 0x6C, 0x32, 0x2E, 0x62,
-  0x6F, 0x75, 0x6E, 0x63, 0x65, 0x2E, 0x76, 0x33,
+  0x9E, 0x37, 0x79, 0xB9, 0x15, 0xC2, 0x6A, 0x4F,
+  0x83, 0x2D, 0xD1, 0x07, 0xBE, 0x52, 0xA8, 0x6C,
+  0x31, 0xF0, 0x4D, 0x99,
 ];
 
-Uint8List _buildKeyStream(int size) {
-  var hash = 0x811C9DC5;
-  for (final b in _seedBytes) {
-    hash = ((hash ^ b) * 0x01000193) & 0xFFFFFFFF;
+const int _streamLen = 80;
+
+int _digest() {
+  var a = 0x1F3D5B79;
+  var b = 0x6A09E667;
+  for (final c in _seedBytes) {
+    a = ((a + c) * 0x27D4EB2F) & 0xFFFFFFFF;
+    a = ((a << 13) | (a >> 19)) & 0xFFFFFFFF;
+    b ^= a;
+    b = (b * 0x85EBCA6B) & 0xFFFFFFFF;
   }
+  return (a ^ b) & 0xFFFFFFFF;
+}
+
+Uint8List _buildStream(int size) {
+  var x = _digest();
+  if (x == 0) x = 0x9E3779B9;
   final out = Uint8List(size);
-  var state = hash == 0 ? 0xC0DEBABE : hash;
   for (var i = 0; i < size; i++) {
-    state = (state * 22695477 + 1) & 0x7FFFFFFF;
-    out[i] = (state >> 11) & 0xFF;
+    x ^= (x << 13) & 0xFFFFFFFF;
+    x ^= x >> 17;
+    x ^= (x << 5) & 0xFFFFFFFF;
+    x &= 0xFFFFFFFF;
+    out[i] = (x >> 3) & 0xFF;
   }
   return out;
 }
 
-final _stream = _buildKeyStream(64);
+final _stream = _buildStream(_streamLen);
+
+int _fold(int i) => (i * 0x9E + 0x37) & 0xFF;
 
 List<int> encode(String s) {
   final out = <int>[];
   for (var i = 0; i < s.length; i++) {
-    out.add(s.codeUnitAt(i) ^ _stream[i % _stream.length]);
+    out.add((s.codeUnitAt(i) ^ _stream[i % _stream.length] ^ _fold(i)) & 0xFF);
   }
   return out;
 }
@@ -46,7 +62,6 @@ List<int> encode(String s) {
 String fmt(List<int> v) => '[${v.join(', ')}]';
 
 void main() {
-  // ⚠️  FILL IN YOUR ACTUAL VALUES BELOW
   const configHost   = 'https://bounceball2.com';
   const configPath   = '/config.php';
   const gcdHost      = 'https://gcdsdk.appsflyer.com/install_data/v4.0/';
@@ -73,9 +88,4 @@ void main() {
   print('');
   print('// ── brand_links.dart — support URL ──────────────');
   print('const _supportMask = ${fmt(encode(supportUrl))};');
-  print('');
-  print('// ── VERIFICATION ─────────────────────────────────');
-  print('// configUrl  : $configHost$configPath');
-  print('// afKey      : $appsflyerKey');
-  print('// firebaseNum: $firebaseProj');
 }

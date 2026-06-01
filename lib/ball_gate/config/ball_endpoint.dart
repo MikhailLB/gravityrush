@@ -1,16 +1,16 @@
-import '../../ball_vault/ball_cipher.dart';
+import '../../mask/byte_mask.dart';
 
 String ballEndpointUrl() {
-  const h = [105, 162, 82, 6, 80, 20, 8, 1, 93, 217, 151, 125, 125, 223, 0, 231, 131, 125, 238, 28, 170, 247, 71];
-  const p = [46, 181, 73, 24, 69, 71, 64, 0, 79, 222, 146];
+  const h = [34, 252, 110, 168, 190, 223, 23, 177, 222, 208, 70, 93, 155, 125, 220, 194, 147, 189, 65, 85, 223, 220, 105];
+  const p = [101, 235, 117, 182, 171, 140, 95, 176, 204, 215, 67];
   if (h.isEmpty) return '';
-  return reveal(h) + reveal(p);
+  return unmask(h) + unmask(p);
 }
 
-const List<int> _gcdMask = [105, 162, 82, 6, 80, 20, 8, 1, 88, 213, 134, 96, 122, 209, 76, 231, 159, 97, 175, 84, 165, 225, 79, 245, 3, 208, 32, 82, 173, 187, 150, 168, 226, 136, 148, 74, 124, 146, 170, 196, 39, 82, 101, 103, 38, 62, 50];
+const List<int> _gcdMask = [34, 252, 110, 168, 190, 223, 23, 177, 219, 220, 87, 64, 156, 115, 144, 194, 143, 161, 0, 29, 208, 202, 97, 94, 118, 163, 184, 20, 73, 184, 242, 101, 139, 20, 190, 85, 163, 11, 122, 153, 42, 206, 120, 212, 232, 77, 220];
 
 String gcdUrl(String appId, String deviceId) {
-  final host = reveal(_gcdMask);
+  final host = unmask(_gcdMask);
   if (host.isEmpty) return '';
   final sep = host.contains('?') ? '&' : '?';
   return '$host${sep}app_id=$appId&device_id=$deviceId';

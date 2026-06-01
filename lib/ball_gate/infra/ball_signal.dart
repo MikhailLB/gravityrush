@@ -29,7 +29,6 @@ class BallSignal {
   Future<void> _doWarmup() async {
     if (_started) return;
     final devKey = BallConfig.installKey;
-    debugPrint('[BB2.BS] warmup devKeyLen=${devKey.length}');
     if (devKey.isEmpty) {
       _started = true;
       if (!_conversionDone.isCompleted) _conversionDone.complete({});
@@ -54,9 +53,7 @@ class BallSignal {
         registerOnAppOpenAttributionCallback: true,
         registerOnDeepLinkingCallback: true,
       );
-      debugPrint('[BB2.BS] initSdk OK');
-    } catch (err) {
-      debugPrint('[BB2.BS] warmup error: $err');
+    } catch (_) {
       if (!_conversionDone.isCompleted) _conversionDone.complete({});
       if (!_deepLinkDone.isCompleted) _deepLinkDone.complete();
     }
@@ -69,7 +66,7 @@ class BallSignal {
       await WidgetsBinding.instance.endOfFrame;
       await Future.delayed(const Duration(milliseconds: 300));
       await AppTrackingTransparency.requestTrackingAuthorization();
-    } catch (err) { debugPrint('[BB2.BS] ATT skipped: $err'); }
+    } catch (_) {}
   }
 
   Map<String, dynamic> _flatten(dynamic raw) {
@@ -81,7 +78,6 @@ class BallSignal {
 
   void _onConversion(dynamic raw) async {
     final data = _flatten(raw);
-    debugPrint('[BB2.BS] conversion ${jsonEncode(data)}');
     if (data['af_status'] == 'Organic') {
       await Future.delayed(Duration(seconds: BallConfig.organicRetrySeconds));
       final retry = await _refreshGcd();
@@ -162,7 +158,6 @@ class BallSignal {
       body['firebase_project_id'] = BallConfig.firebaseNumber;
     }
 
-    debugPrint('[BB2.BS] payload keys=${body.keys.toList()}');
     return body;
   }
 }
