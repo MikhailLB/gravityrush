@@ -1,7 +1,7 @@
 name: bounce_ball_two
 description: "Bounce Ball 2 — neon plinko ball game with risk and reward."
 publish_to: 'none'
-version: 1.0.1+4
+version: 1.0.2+5
 
 environment:
   sdk: ^3.11.4
