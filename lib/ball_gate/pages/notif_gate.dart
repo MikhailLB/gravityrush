@@ -1,16 +1,17 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
+
 import '../config/ball_config.dart';
 import '../infra/ball_vault.dart';
 import '../infra/flare_relay.dart';
 import '../infra/net_probe.dart';
 import 'ball_browser.dart';
 
-/// Push permission screen for Bounce Ball 2.
-/// Background: looping MP4 clip — neon/bounce aesthetic.
-/// Buttons: neon cyan gradient matching the game theme.
+/// Push-permission promo — full-screen looping video with invisible tap zones
+/// aligned to the Accept / Skip artwork baked into the clip.
 class NotifGate extends StatefulWidget {
   final BallVault vault;
   final FlareRelay flare;
@@ -31,12 +32,11 @@ class NotifGate extends StatefulWidget {
   State<NotifGate> createState() => _NotifGateState();
 }
 
-class _NotifGateState extends State<NotifGate> with TickerProviderStateMixin {
+class _NotifGateState extends State<NotifGate> {
   VideoPlayerController? _vid;
   Orientation? _activeOrientation;
   bool _vidReady = false;
   bool _busy = false;
-  late final AnimationController _glow;
 
   @override
   void initState() {
@@ -47,21 +47,21 @@ class _NotifGateState extends State<NotifGate> with TickerProviderStateMixin {
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
-    _glow = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))
-        ..repeat(reverse: true);
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final o = MediaQuery.of(context).orientation;
-    if (o != _activeOrientation) { _activeOrientation = o; _loadVideo(o); }
+    if (o != _activeOrientation) {
+      _activeOrientation = o;
+      _loadVideo(o);
+    }
   }
 
   @override
   void dispose() {
     _vid?.dispose();
-    _glow.dispose();
     super.dispose();
   }
 
@@ -76,11 +76,19 @@ class _NotifGateState extends State<NotifGate> with TickerProviderStateMixin {
       ctrl.setLooping(true);
       ctrl.setVolume(0);
       ctrl.play();
-      if (!mounted) { ctrl.dispose(); return; }
-      setState(() { _vid = ctrl; _vidReady = true; });
+      if (!mounted) {
+        ctrl.dispose();
+        return;
+      }
+      setState(() {
+        _vid = ctrl;
+        _vidReady = true;
+      });
       await Future.delayed(const Duration(milliseconds: 400));
       old?.dispose();
-    } catch (_) { ctrl.dispose(); }
+    } catch (_) {
+      ctrl.dispose();
+    }
   }
 
   Future<void> _accept() async {
@@ -90,7 +98,9 @@ class _NotifGateState extends State<NotifGate> with TickerProviderStateMixin {
       final granted = await widget.flare.askConsent();
       if (granted) {
         final token = await widget.flare.refreshTokenAfterConsent();
-        if (token != null && token.isNotEmpty) await widget.onTokenReady?.call(token);
+        if (token != null && token.isNotEmpty) {
+          await widget.onTokenReady?.call(token);
+        }
       } else {
         await _setCooldown();
       }
@@ -125,170 +135,132 @@ class _NotifGateState extends State<NotifGate> with TickerProviderStateMixin {
     ));
   }
 
+  /// Tap targets tuned for 1080×2400 (portrait) and 2400×1080 (landscape) clips.
+  _TapLayout _layout(Size size) {
+    final landscape = size.width > size.height;
+    if (landscape) {
+      return const _TapLayout(
+        acceptTop: 0.58,
+        acceptHeight: 0.11,
+        acceptInset: 0.35,
+        skipTop: 0.72,
+        skipHeight: 0.06,
+        skipInset: 0.38,
+      );
+    }
+    return const _TapLayout(
+      acceptTop: 0.61,
+      acceptHeight: 0.07,
+      acceptInset: 0.11,
+      skipTop: 0.70,
+      skipHeight: 0.045,
+      skipInset: 0.28,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final mq = MediaQuery.of(context);
-    final landscape = mq.size.width > mq.size.height;
-    final btnW = landscape
-        ? (mq.size.width * 0.30).clamp(220.0, 360.0)
-        : mq.size.width * 0.76;
-    final bottomGap = mq.size.height * (landscape ? 0.05 : 0.07);
+    final size = MediaQuery.sizeOf(context);
+    final layout = _layout(size);
 
     return Scaffold(
       backgroundColor: Colors.black,
-      body: SizedBox.expand(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            const ColoredBox(color: Color(0xFF080A1A)),
-            AnimatedOpacity(
-              opacity: _vidReady ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 350),
-              child: _vidReady && _vid != null
-                  ? FittedBox(
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          const ColoredBox(color: Colors.black),
+          AnimatedOpacity(
+            opacity: _vidReady ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 350),
+            child: _vid != null && _vidReady
+                ? SizedBox.expand(
+                    child: FittedBox(
                       fit: BoxFit.cover,
                       child: SizedBox(
                         width: _vid!.value.size.width,
                         height: _vid!.value.size.height,
                         child: VideoPlayer(_vid!),
                       ),
-                    )
-                  : const SizedBox.shrink(),
-            ),
-            SafeArea(
-              child: Stack(
-                children: [
-                  Positioned(
-                    left: 0, right: 0, bottom: bottomGap,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _CyanAcceptButton(
-                          width: btnW,
-                          busy: _busy,
-                          glow: _glow,
-                          onTap: _accept,
-                          compact: landscape,
-                        ),
-                        SizedBox(height: mq.size.height * 0.022),
-                        _SkipText(onTap: _skip, compact: landscape),
-                      ],
                     ),
-                  ),
-                ],
-              ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+          if (_vidReady) ...[
+            _TapZone(
+              top: size.height * layout.acceptTop,
+              height: size.height * layout.acceptHeight,
+              left: size.width * layout.acceptInset,
+              right: size.width * layout.acceptInset,
+              onTap: _busy ? null : _accept,
+            ),
+            _TapZone(
+              top: size.height * layout.skipTop,
+              height: size.height * layout.skipHeight,
+              left: size.width * layout.skipInset,
+              right: size.width * layout.skipInset,
+              onTap: _busy ? null : _skip,
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Neon cyan Accept button — matches BounceBall 2 neon aesthetic.
-class _CyanAcceptButton extends StatefulWidget {
-  final double width;
-  final bool busy;
-  final bool compact;
-  final AnimationController glow;
-  final VoidCallback onTap;
-  const _CyanAcceptButton({
-    required this.width, required this.busy, required this.glow,
-    required this.onTap, this.compact = false,
-  });
-  @override
-  State<_CyanAcceptButton> createState() => _CyanAcceptButtonState();
-}
-
-class _CyanAcceptButtonState extends State<_CyanAcceptButton>
-    with SingleTickerProviderStateMixin {
-  bool _pressed = false;
-  late final AnimationController _press = AnimationController(
-    vsync: this, duration: const Duration(milliseconds: 100));
-  @override
-  void dispose() { _press.dispose(); super.dispose(); }
-
-  @override
-  Widget build(BuildContext context) {
-    final fontSize = widget.compact ? 16.0 : 20.0;
-    return GestureDetector(
-      onTapDown: (_) { setState(() => _pressed = true); _press.forward(); },
-      onTapUp: (_) { setState(() => _pressed = false); _press.reverse(); widget.onTap(); },
-      onTapCancel: () { setState(() => _pressed = false); _press.reverse(); },
-      child: AnimatedBuilder(
-        animation: Listenable.merge([_press, widget.glow]),
-        builder: (context, child) => Transform.scale(
-          scale: 1.0 - 0.04 * _press.value,
-          child: Container(
-            width: widget.width,
-            padding: EdgeInsets.symmetric(vertical: widget.compact ? 12 : 17),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: _pressed
-                    ? [const Color(0xFF006064), const Color(0xFF004D51)]
-                    : [const Color(0xFF00BCD4), const Color(0xFF006064)],
-                begin: Alignment.topLeft, end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(50),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF00BCD4).withValues(
-                      alpha: _pressed ? 0.15 : 0.25 + 0.30 * widget.glow.value),
-                  blurRadius: _pressed ? 8 : 18 + widget.glow.value * 20,
-                  offset: const Offset(0, 4),
+          if (_busy)
+            const ColoredBox(
+              color: Color(0x44000000),
+              child: Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: Colors.white70,
                 ),
-              ],
+              ),
             ),
-            child: Center(
-              child: widget.busy
-                  ? SizedBox(
-                      width: fontSize + 4, height: fontSize + 4,
-                      child: const CircularProgressIndicator(
-                        strokeWidth: 2.5, color: Color(0xFF001F2E)))
-                  : Text('Accept',
-                      style: TextStyle(
-                        color: const Color(0xFF001F2E),
-                        fontSize: fontSize,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.5,
-                      )),
-            ),
-          ),
-        ),
+        ],
       ),
     );
   }
 }
 
-class _SkipText extends StatefulWidget {
-  final VoidCallback onTap;
-  final bool compact;
-  const _SkipText({required this.onTap, this.compact = false});
-  @override
-  State<_SkipText> createState() => _SkipTextState();
+class _TapLayout {
+  final double acceptTop;
+  final double acceptHeight;
+  final double acceptInset;
+  final double skipTop;
+  final double skipHeight;
+  final double skipInset;
+
+  const _TapLayout({
+    required this.acceptTop,
+    required this.acceptHeight,
+    required this.acceptInset,
+    required this.skipTop,
+    required this.skipHeight,
+    required this.skipInset,
+  });
 }
 
-class _SkipTextState extends State<_SkipText> {
-  bool _pressed = false;
+class _TapZone extends StatelessWidget {
+  final double top;
+  final double height;
+  final double left;
+  final double right;
+  final VoidCallback? onTap;
+
+  const _TapZone({
+    required this.top,
+    required this.height,
+    required this.left,
+    required this.right,
+    required this.onTap,
+  });
+
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) { setState(() => _pressed = false); widget.onTap(); },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedOpacity(
-        opacity: _pressed ? 0.45 : 0.82,
-        duration: const Duration(milliseconds: 80),
-        child: Padding(
-          padding: EdgeInsets.symmetric(vertical: widget.compact ? 4 : 8),
-          child: Text('Skip',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: widget.compact ? 16 : 22,
-                fontWeight: FontWeight.w700,
-                shadows: const [Shadow(color: Colors.black54, blurRadius: 6)],
-              )),
-        ),
+    return Positioned(
+      top: top,
+      left: left,
+      right: right,
+      height: height,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: const SizedBox.expand(),
       ),
     );
   }
